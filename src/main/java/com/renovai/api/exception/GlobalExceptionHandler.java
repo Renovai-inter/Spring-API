@@ -99,10 +99,15 @@ public class GlobalExceptionHandler {
                 "Você não tem permissão para acessar este recurso.", request);
     }
 
-    // 500 — Erros genéricos
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErroResponse> handleGeneric(Exception ex, WebRequest request) {
+        ex.printStackTrace(); // adicionar essa linha temporariamente
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Erro Interno",
-                "Ocorreu um erro inesperado. Contate o suporte.", request);
+                ex.getMessage(), request); // trocar mensagem genérica pela real
     }
+
+
+
+
+    
 }

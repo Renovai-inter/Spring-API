@@ -3,48 +3,49 @@ package com.renovai.api.service;
 import com.renovai.api.dto.request.LoginRequest;
 import com.renovai.api.dto.response.Responses.LoginResponse;
 import com.renovai.api.exception.RegraDeNegocioException;
-import com.renovai.api.model.Perfil;
-import com.renovai.api.repository.PerfilRepository;
+import com.renovai.api.model.Funcionario;
+import com.renovai.api.model.Usuario;
+import com.renovai.api.repository.FuncionarioRepository;
+import com.renovai.api.repository.UsuarioRepository;
 import com.renovai.api.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 
 @Service
 public class AuthService {
 
-    private final PerfilRepository perfilRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final FuncionarioRepository funcionarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
 
-    public AuthService(PerfilRepository perfilRepository,
+    public AuthService(UsuarioRepository usuarioRepository,
+                       FuncionarioRepository funcionarioRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenProvider tokenProvider) {
-        this.perfilRepository = perfilRepository;
+        this.usuarioRepository = usuarioRepository;
+        this.funcionarioRepository = funcionarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
     }
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
-        Perfil perfil = perfilRepository.findByEmail(request.email())
+        Usuario usuario = usuarioRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RegraDeNegocioException("Credenciais inválidas."));
 
-        if (!perfil.getEstaAtivo()) {
-            throw new RegraDeNegocioException("Perfil inativo. Entre em contato com o administrador.");
-        }
+        if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash()))
+            throw new RegraDeNegocioException("Credenciais inválidas.");
 
-        // Determina o role baseado no tipo de perfil
-        String role = determinarRole(perfil);
-        String token = tokenProvider.gerarToken(perfil.getEmail(), role);
+        Funcionario funcionario = funcionarioRepository.findByUsuario(usuario)
+                .orElseThrow(() -> new RegraDeNegocioException("Funcionário não encontrado."));
 
-        return new LoginResponse(token, perfil.getEmail(), role);
-    }
+        if (!funcionario.getEstaAtivo())
+            throw new RegraDeNegocioException("Usuário inativo.");
 
-    private String determinarRole(Perfil perfil) {
-        if (perfil.getCooperativa() != null) {
-            return "GESTOR_COOPERATIVA";
-        } else if (perfil.getEmpresa() != null) {
-            return "GESTOR_EMPRESA";
-        }
-        return "ADMIN_SITE";
+        String role = funcionario.getCargo().getCargo();
+        return new LoginResponse(tokenProvider.gerarToken(usuario.getEmail(), role), usuario.getEmail(), role);
     }
 }
