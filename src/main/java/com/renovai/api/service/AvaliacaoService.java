@@ -47,6 +47,11 @@ public class AvaliacaoService {
         return repository.calcularMediaNotasByPerfil(perfilId);
     }
 
+    @Transactional(readOnly = true)
+    public List<AvaliacaoResponse> listarPorPedido(Integer pedidoId) {
+        return repository.findByPedidoPedidoId(pedidoId).stream().map(this::toResponse).toList();
+    }
+
     public AvaliacaoResponse criar(AvaliacaoRequest request) {
         if (request.avaliadorId().equals(request.avaliadoId())) {
             throw new RegraDeNegocioException("Avaliador e avaliado não podem ser o mesmo perfil.");

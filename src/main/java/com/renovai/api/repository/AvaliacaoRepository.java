@@ -13,4 +13,7 @@ public interface AvaliacaoRepository extends JpaRepository<Avaliacao, Integer> {
 
     @Query("SELECT AVG(a.nota) FROM Avaliacao a WHERE a.avaliado.perfilId = :perfilId AND a.nota IS NOT NULL")
     Double calcularMediaNotasByPerfil(@Param("perfilId") Integer perfilId);
+    
+    List<Avaliacao> findByPedidoPedidoId(Integer pedidoId);
+
 }

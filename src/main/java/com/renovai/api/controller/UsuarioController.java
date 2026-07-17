@@ -1,5 +1,6 @@
 package com.renovai.api.controller;
 
+import com.renovai.api.dto.request.Requests.AlterarSenhaRequest;
 import com.renovai.api.dto.request.Requests.CompletarCadastroRequest;
 import com.renovai.api.dto.request.Requests.UsuarioRequest;
 import com.renovai.api.dto.request.Requests.ValidarPrimeiroAcessoRequest;
@@ -80,5 +81,12 @@ public class UsuarioController {
         return ResponseEntity.ok(
                 service.completarCadastro(request)
         );
+    }
+
+    @PutMapping("/{id}/senha")
+    @Operation(summary = "Alterar senha do usuário")
+    public ResponseEntity<Void> alterarSenha(@PathVariable Integer id, @RequestBody AlterarSenhaRequest request) {
+        service.alterarSenha(id, request);
+        return ResponseEntity.noContent().build();
     }
 }

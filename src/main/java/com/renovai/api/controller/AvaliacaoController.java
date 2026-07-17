@@ -50,6 +50,12 @@ public class AvaliacaoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(request));
     }
 
+    @GetMapping("/por-pedido/{pedidoId}")
+    @Operation(summary = "Listar avaliações de um pedido")
+    public ResponseEntity<List<AvaliacaoResponse>> listarPorPedido(@PathVariable Integer pedidoId) {
+        return ResponseEntity.ok(service.listarPorPedido(pedidoId));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN_SITE')")
     @Operation(summary = "Excluir avaliação")

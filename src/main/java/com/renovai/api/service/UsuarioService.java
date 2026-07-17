@@ -1,5 +1,6 @@
 package com.renovai.api.service;
 
+import com.renovai.api.dto.request.Requests.AlterarSenhaRequest;
 import com.renovai.api.dto.request.Requests.CompletarCadastroRequest;
 import com.renovai.api.dto.request.Requests.UsuarioRequest;
 import com.renovai.api.dto.request.Requests.ValidarPrimeiroAcessoRequest;
@@ -123,5 +124,13 @@ public class UsuarioService {
 
     private UsuarioResponse toResponse(Usuario u) {
         return new UsuarioResponse(u.getUsuarioId(), u.getNome(), u.getCpf(), u.getDataNascimento());
+    }
+
+    public void alterarSenha(Integer id, AlterarSenhaRequest request) {
+        Usuario usuario = findOrThrow(id);
+        if (!passwordEncoder.matches(request.senhaAtual(), usuario.getSenhaHash()))
+            throw new RegraDeNegocioException("Senha atual incorreta.");
+        usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
+        repository.save(usuario);
     }
 }

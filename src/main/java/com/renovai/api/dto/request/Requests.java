@@ -202,4 +202,9 @@ public class Requests {
         @NotNull Integer cooperativaId,
         @NotNull Integer statusId
     ) {}
+
+    public record AlterarSenhaRequest(
+        @NotBlank String senhaAtual,
+        @NotBlank @Size(min = 6) String novaSenha
+    ) {}
 }

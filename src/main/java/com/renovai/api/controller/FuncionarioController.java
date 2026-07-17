@@ -1,6 +1,7 @@
 package com.renovai.api.controller;
 
 import com.renovai.api.dto.request.Requests.PreCadastroRequest;
+import com.renovai.api.dto.response.Responses.AvaliacaoResponse;
 import com.renovai.api.service.FuncionarioService;
 import com.renovai.api.service.FuncionarioService.FuncionarioRequest;
 import com.renovai.api.service.FuncionarioService.FuncionarioResponse;
@@ -45,7 +46,12 @@ public class FuncionarioController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(request));
     }
 
-    
+
+    @GetMapping("/por-cargo/{cargo}")
+    @Operation(summary = "Listar funcionários por cargo")
+    public ResponseEntity<List<FuncionarioResponse>> listarPorCargo(@PathVariable String cargo) {
+        return ResponseEntity.ok(service.listarPorCargo(cargo));
+    }
 
     @PatchMapping("/{id}/cargo")
     @PreAuthorize("hasAnyRole('ADMIN_SITE','ADMIN_COOPERATIVA')")

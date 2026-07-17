@@ -2,6 +2,7 @@ package com.renovai.api.service;
 
 import com.renovai.api.dto.request.Requests.PreCadastroRequest;
 import com.renovai.api.dto.request.Requests.ValidarPrimeiroAcessoRequest;
+import com.renovai.api.dto.response.Responses.AvaliacaoResponse;
 import com.renovai.api.dto.response.Responses.PrimeiroAcessoResponse;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
 import com.renovai.api.exception.RegraDeNegocioException;
@@ -49,10 +50,15 @@ public class FuncionarioService {
         return repository.findByEstaAtivoTrue().stream().map(this::toResponse).toList();
     }
 
+    public List<FuncionarioResponse> listarPorCargo(String cargo) {
+        return repository.findAtivosByCargo(cargo.toUpperCase()).stream().map(this::toResponse).toList();
+    }
+
     @Transactional(readOnly = true)
     public List<FuncionarioResponse> listarTodos() {
         return repository.findAll().stream().map(this::toResponse).toList();
     }
+
 
     @Transactional(readOnly = true)
     public FuncionarioResponse buscarPorId(Integer id) {
@@ -71,7 +77,7 @@ public class FuncionarioService {
         return toResponse(repository.save(funcionario));
     }
 
-    
+
 
     public FuncionarioResponse atualizarCargo(Integer id, Integer cargoId) {
         Funcionario funcionario = findOrThrow(id);
