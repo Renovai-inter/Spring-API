@@ -2,3 +2,13 @@ target/
 .env
 *.class
 application-dev.properties
+
+.idea/
+*.iml
+.vscode/
+
+*.log
+logs/
+
+application-local.properties
+application.properties
