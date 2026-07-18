@@ -146,4 +146,23 @@ public class Responses {
         String cooperativaNome,
         String statusAtual
     ) {}
+
+    public record EquipeResponse(
+        Integer equipeId,
+        Integer cooperativaId,
+        String cooperativaNome,
+        Integer gestorId,
+        String gestorNome,
+        String nome,
+        Boolean estaAtiva,
+        LocalDateTime dataCriacao
+    ) {}
+
+    public record EquipeCooperadoResponse(
+        Integer equipeCooperadoId,
+        Integer equipeId,
+        String equipeNome,
+        Integer cooperadoId,
+        String cooperadoNome
+    ) {}
 }

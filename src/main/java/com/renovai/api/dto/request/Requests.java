@@ -207,4 +207,26 @@ public class Requests {
         @NotBlank String senhaAtual,
         @NotBlank @Size(min = 6) String novaSenha
     ) {}
+
+    public record EquipeRequest(
+        @NotNull(message = "ID da cooperativa é obrigatório")
+        Integer cooperativaId,
+
+        @NotNull(message = "ID do gestor é obrigatório")
+        Integer gestorId,
+
+        @NotBlank(message = "Nome é obrigatório")
+        @Size(max = 255)
+        String nome,
+
+        Boolean estaAtiva
+    ) {}
+
+    public record EquipeCooperadoRequest(
+        @NotNull(message = "ID da equipe é obrigatório")
+        Integer equipeId,
+
+        @NotNull(message = "ID do cooperado é obrigatório")
+        Integer cooperadoId
+    ) {}
 }
