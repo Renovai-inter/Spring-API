@@ -1,8 +1,13 @@
 package com.renovai.api.dto.request;
 
 import jakarta.validation.constraints.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public class Requests {
 
@@ -31,11 +36,13 @@ public class Requests {
     ) {}
 
     public record PreCadastroRequest(
-
         String nome,
         String cpf,
         String senhaTemporaria,
-        Integer cargoId
+        Integer cargoId,
+
+        @NotNull(message = "ID da cooperativa é obrigatório")
+        Integer cooperativaId
 
     ) {}
 
@@ -178,12 +185,13 @@ public class Requests {
         String comentario
     ) {}
 
-    public record RateioRequest(
-        @NotNull(message = "ID do gestor é obrigatório")
-        Integer gestorId,
-
-        Integer tipoRateioId
-    ) {}
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public class RateioRequest {
+        private Integer gestorId;
+        private Integer tipoRateioId;
+    }
 
     public record EstoqueRequest(
         @NotNull(message = "ID da cooperativa é obrigatório")
@@ -209,9 +217,6 @@ public class Requests {
     ) {}
 
     public record EquipeRequest(
-        @NotNull(message = "ID da cooperativa é obrigatório")
-        Integer cooperativaId,
-
         @NotNull(message = "ID do gestor é obrigatório")
         Integer gestorId,
 
@@ -221,7 +226,7 @@ public class Requests {
 
         Boolean estaAtiva
     ) {}
-
+    
     public record EquipeCooperadoRequest(
         @NotNull(message = "ID da equipe é obrigatório")
         Integer equipeId,
@@ -229,4 +234,24 @@ public class Requests {
         @NotNull(message = "ID do cooperado é obrigatório")
         Integer cooperadoId
     ) {}
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public class RateioGeralRequest {
+        private Integer gestorId;
+        private Integer cooperativaId;
+        private LocalDateTime dataInicio;
+        private LocalDateTime dataFim;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public class RateioProporcionalsRequest {
+        private Integer gestorId;
+        private Integer cooperativaId;
+        private LocalDateTime dataInicio;
+        private LocalDateTime dataFim;
+    }
 }

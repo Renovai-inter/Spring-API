@@ -1,15 +1,13 @@
 package com.renovai.api.service;
 
 import com.renovai.api.dto.request.Requests.PreCadastroRequest;
-import com.renovai.api.dto.request.Requests.ValidarPrimeiroAcessoRequest;
-import com.renovai.api.dto.response.Responses.AvaliacaoResponse;
-import com.renovai.api.dto.response.Responses.PrimeiroAcessoResponse;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
-import com.renovai.api.exception.RegraDeNegocioException;
 import com.renovai.api.model.Cargo;
+import com.renovai.api.model.Cooperativa;
 import com.renovai.api.model.Funcionario;
 import com.renovai.api.model.Usuario;
 import com.renovai.api.repository.CargoRepository;
+import com.renovai.api.repository.CooperativaRepository;
 import com.renovai.api.repository.FuncionarioRepository;
 import com.renovai.api.repository.UsuarioRepository;
 
@@ -26,24 +24,30 @@ public class FuncionarioService {
     private final FuncionarioRepository repository;
     private final UsuarioRepository usuarioRepository;
     private final CargoRepository cargoRepository;
+    private final CooperativaRepository cooperativaRepository;
     private final PasswordEncoder passwordEncoder;
+
     public FuncionarioService(
         FuncionarioRepository repository,
         UsuarioRepository usuarioRepository,
         CargoRepository cargoRepository,
+        CooperativaRepository cooperativaRepository,
         PasswordEncoder passwordEncoder) {
 
-    this.repository = repository;
-    this.usuarioRepository = usuarioRepository;
-    this.cargoRepository = cargoRepository;
-    this.passwordEncoder = passwordEncoder;
-}
+        this.repository = repository;
+        this.usuarioRepository = usuarioRepository;
+        this.cargoRepository = cargoRepository;
+        this.cooperativaRepository = cooperativaRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
-    public record FuncionarioRequest(Integer usuarioId, Integer cargoId) {}
+    public record FuncionarioRequest(Integer usuarioId, Integer cargoId, Integer cooperativaId) {}
 
     public record FuncionarioResponse(
             Integer funcionarioId, Integer usuarioId, String usuarioNome,
-            Integer cargoId, String cargo, Boolean estaAtivo) {}
+            Integer cargoId, String cargo,
+            Integer cooperativaId, String cooperativaNome,
+            Boolean estaAtivo) {}
 
     @Transactional(readOnly = true)
     public List<FuncionarioResponse> listarAtivos() {
@@ -59,25 +63,35 @@ public class FuncionarioService {
         return repository.findAll().stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<FuncionarioResponse> listarPorCooperativa(Integer cooperativaId) {
+        if (!cooperativaRepository.existsById(cooperativaId)) {
+            throw new RecursoNaoEncontradoException("Cooperativa", cooperativaId);
+        }
+        return repository.findByCooperativa_CooperativaId(cooperativaId).stream().map(this::toResponse).toList();
+    }
 
     @Transactional(readOnly = true)
     public FuncionarioResponse buscarPorId(Integer id) {
         return toResponse(findOrThrow(id));
     }
 
-
     public FuncionarioResponse criar(FuncionarioRequest request) {
         Usuario usuario = usuarioRepository.findById(request.usuarioId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário", request.usuarioId()));
         Cargo cargo = cargoRepository.findById(request.cargoId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Cargo", request.cargoId()));
+        Cooperativa cooperativa = cooperativaRepository.findById(request.cooperativaId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", request.cooperativaId()));
 
         Funcionario funcionario = Funcionario.builder()
-                .usuario(usuario).cargo(cargo).estaAtivo(true).build();
+                .usuario(usuario)
+                .cargo(cargo)
+                .cooperativa(cooperativa)
+                .estaAtivo(true)
+                .build();
         return toResponse(repository.save(funcionario));
     }
-
-
 
     public FuncionarioResponse atualizarCargo(Integer id, Integer cargoId) {
         Funcionario funcionario = findOrThrow(id);
@@ -94,8 +108,10 @@ public class FuncionarioService {
         }
 
         Cargo cargo = cargoRepository.findById(request.cargoId())
-                .orElseThrow(() ->
-                        new RecursoNaoEncontradoException("Cargo", request.cargoId()));
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cargo", request.cargoId()));
+
+        Cooperativa cooperativa = cooperativaRepository.findById(request.cooperativaId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", request.cooperativaId()));
 
         Usuario usuario = Usuario.builder()
                 .nome(request.nome())
@@ -109,6 +125,7 @@ public class FuncionarioService {
         Funcionario funcionario = Funcionario.builder()
                 .usuario(usuario)
                 .cargo(cargo)
+                .cooperativa(cooperativa)
                 .estaAtivo(true)
                 .build();
 
@@ -116,7 +133,6 @@ public class FuncionarioService {
 
         return toResponse(funcionario);
     }
-
 
     public FuncionarioResponse desativar(Integer id) {
         Funcionario funcionario = findOrThrow(id);
@@ -145,6 +161,8 @@ public class FuncionarioService {
                 f.getUsuario().getNome(),
                 f.getCargo().getCargoId(),
                 f.getCargo().getCargo(),
+                f.getCooperativa().getCooperativaId(),
+                f.getCooperativa().getNome(),
                 f.getEstaAtivo()
         );
     }

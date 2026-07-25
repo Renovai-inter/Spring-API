@@ -62,6 +62,11 @@ public class EquipeCooperadoService {
             throw new RegraDeNegocioException("Cooperado já pertence a esta equipe.");
         }
 
+        if (!equipe.getGestor().getCooperativa().getCooperativaId()
+                .equals(cooperado.getCooperativa().getCooperativaId())) {
+            throw new RegraDeNegocioException("Cooperado deve pertencer à mesma cooperativa da equipe.");
+        }
+
         EquipeCooperado equipeCooperado = EquipeCooperado.builder()
                 .equipe(equipe)
                 .cooperado(cooperado)

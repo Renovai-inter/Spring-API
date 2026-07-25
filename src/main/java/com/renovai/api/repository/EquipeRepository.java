@@ -10,19 +10,22 @@ import java.util.Optional;
 
 @Repository
 public interface EquipeRepository extends JpaRepository<Equipe, Integer> {
-    
-    List<Equipe> findByCooperativa_CooperativaId(Integer cooperativaId);
-    
+
     List<Equipe> findByEstaAtivaTrue();
-    
-    List<Equipe> findByCooperativa_CooperativaIdAndEstaAtivaTrue(Integer cooperativaId);
-    
+
     List<Equipe> findByGestor_FuncionarioId(Integer gestorId);
-    
-    Optional<Equipe> findByNomeAndCooperativa_CooperativaId(String nome, Integer cooperativaId);
-    
+
+    @Query("SELECT e FROM Equipe e WHERE e.gestor.cooperativa.cooperativaId = :cooperativaId")
+    List<Equipe> findByCooperativa(@Param("cooperativaId") Integer cooperativaId);
+
+    @Query("SELECT e FROM Equipe e WHERE e.gestor.cooperativa.cooperativaId = :cooperativaId AND e.estaAtiva = true")
+    List<Equipe> findByCooperativaAndEstaAtivaTrue(@Param("cooperativaId") Integer cooperativaId);
+
+    @Query("SELECT e FROM Equipe e WHERE e.nome = :nome AND e.gestor.cooperativa.cooperativaId = :cooperativaId")
+    Optional<Equipe> findByNomeAndCooperativa(@Param("nome") String nome, @Param("cooperativaId") Integer cooperativaId);
+
     @Query("SELECT DISTINCT e FROM Equipe e " +
-           "JOIN EquipeCooperado ec ON e.equipeId = ec.equipe.equipeId " +
+           "JOIN EquipeCooperado ec ON ec.equipe.equipeId = e.equipeId " +
            "WHERE ec.cooperado.funcionarioId = :cooperadoId AND e.estaAtiva = true")
     List<Equipe> findEquipesByCooperado(@Param("cooperadoId") Integer cooperadoId);
 }

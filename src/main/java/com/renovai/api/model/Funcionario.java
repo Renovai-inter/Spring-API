@@ -1,3 +1,6 @@
+// ============ FUNCIONARIO.JAVA CORRIGIDO - COPIAR PARA O PROJETO ============
+// src/main/java/com/renovai/api/model/Funcionario.java
+
 package com.renovai.api.model;
 
 import jakarta.persistence.*;
@@ -22,10 +25,12 @@ public class Funcionario {
     @JoinColumn(name = "cargo_id", nullable = false)
     private Cargo cargo;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cooperativa_id", nullable = false)
+    private Cooperativa cooperativa;
+
     @Column(name = "data_admissao")
     private LocalDateTime dataAdmissao;
-
-
 
     @Column(name = "esta_ativo")
     private Boolean estaAtivo = true;

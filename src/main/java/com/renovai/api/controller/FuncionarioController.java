@@ -2,11 +2,16 @@ package com.renovai.api.controller;
 
 import com.renovai.api.dto.request.Requests.PreCadastroRequest;
 import com.renovai.api.dto.response.Responses.AvaliacaoResponse;
+import com.renovai.api.model.Cooperativa;
 import com.renovai.api.service.FuncionarioService;
 import com.renovai.api.service.FuncionarioService.FuncionarioRequest;
 import com.renovai.api.service.FuncionarioService.FuncionarioResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -87,4 +92,8 @@ public class FuncionarioController {
         service.deletar(id);
         return ResponseEntity.noContent().build();
     }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cooperativa_id", nullable = false)
+    private Cooperativa cooperativa;
 }

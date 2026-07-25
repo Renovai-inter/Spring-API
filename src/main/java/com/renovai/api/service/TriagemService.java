@@ -78,10 +78,7 @@ public class TriagemService {
                 .build();
 
         Triagem saved = repository.save(triagem);
-
-        // Atualiza estoque automaticamente após triagem
-        atualizarEstoque(equipe.getCooperativa(), material, request.quantidadeKg());
-
+        atualizarEstoque(equipe.getGestor().getCooperativa(), material, request.quantidadeKg());
         return toResponse(saved);
     }
 

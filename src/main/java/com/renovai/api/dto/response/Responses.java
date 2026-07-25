@@ -3,6 +3,14 @@ package com.renovai.api.dto.response;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+
+import com.renovai.api.dto.response.Responses.ResultadoRateioIndividualResponse;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 public class Responses {
 
@@ -130,15 +138,6 @@ public class Responses {
         LocalDateTime dataAvaliacao
     ) {}
 
-    public record RateioResponse(
-        Integer rateioId,
-        Integer gestorId,
-        String gestorNome,
-        Integer tipoRateioId,
-        String tipoRateio,
-        LocalDateTime dataRateio
-    ) {}
-
     public record PedidoCooperativaResponse(
         Integer pedidoCooperativaId,
         Integer pedidoId,
@@ -165,4 +164,76 @@ public class Responses {
         Integer cooperadoId,
         String cooperadoNome
     ) {}
+
+    public record RateioResponse(
+        Integer rateioId,
+        Integer gestorId,
+        String gestorNome,
+        Integer cooperativaId,
+        String cooperativaNome,
+        Integer tipoRateioId,
+        String tipoRateioNome,
+        LocalDateTime dataRateio,
+        Long quantidadePessoas,
+        BigDecimal valorTotalDistribuido
+    ) {}
+
+    public record ResultadoRateioIndividualResponse(
+        Integer funcionarioId,
+        String funcionarioNome,
+        String cargo,
+        Boolean isGestor,
+        BigDecimal valorRateio,
+        Integer quantidadeColetas,
+        Integer quantidadeTriagens,
+        BigDecimal percentualParticipacao
+    ) {}
+
+    public record RateioRealizadoResponse(
+        Integer rateioId,
+        Integer gestorId,
+        String gestorNome,
+        Integer cooperativaId,
+        String cooperativaNome,
+        String tipoRateio,
+        LocalDateTime dataRateio,
+        BigDecimal valorTotalVendas,
+        BigDecimal valorTotalDistribuido,
+        Long quantidadePessoas,
+        List<ResultadoRateioIndividualResponse> distribuicao
+    ) {}
+
+    public record RateioDetalheResponse(
+        Integer rateioId,
+        Integer gestorId,
+        String gestorNome,
+        Integer cooperativaId,
+        String cooperativaNome,
+        String tipoRateio,
+        LocalDateTime dataRateio,
+        BigDecimal valorTotalDistribuido,
+        List<ResultadoRateioIndividualResponse> funcionarios
+    ) {}
+
+    public record RateioListaResponse(
+        Integer rateioId,
+        String gestorNome,
+        String cooperativaNome,
+        String tipoRateio,
+        LocalDateTime dataRateio,
+        Long quantidadePessoas,
+        BigDecimal valorTotalDistribuido
+    ) {}
+
+    public record RateioFuncionarioResponse(
+        Integer rateioFuncionarioId,
+        Integer rateioId,
+        LocalDateTime dataRateio,
+        String tipoRateio,
+        Integer funcionarioId,
+        String funcionarioNome,
+        BigDecimal valorRateio,
+        String cooperativaNome
+    ) {}
+
 }

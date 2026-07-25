@@ -3,7 +3,6 @@ package com.renovai.api.service;
 import com.renovai.api.dto.request.Requests.EquipeRequest;
 import com.renovai.api.dto.response.Responses.EquipeResponse;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
-import com.renovai.api.model.Cooperativa;
 import com.renovai.api.model.Equipe;
 import com.renovai.api.model.Funcionario;
 import com.renovai.api.repository.CooperativaRepository;
@@ -19,15 +18,15 @@ import java.util.List;
 public class EquipeService {
 
     private final EquipeRepository repository;
-    private final CooperativaRepository cooperativaRepository;
     private final FuncionarioRepository funcionarioRepository;
+    private final CooperativaRepository cooperativaRepository;
 
     public EquipeService(EquipeRepository repository,
-                         CooperativaRepository cooperativaRepository,
-                         FuncionarioRepository funcionarioRepository) {
+                         FuncionarioRepository funcionarioRepository,
+                         CooperativaRepository cooperativaRepository) {
         this.repository = repository;
-        this.cooperativaRepository = cooperativaRepository;
         this.funcionarioRepository = funcionarioRepository;
+        this.cooperativaRepository = cooperativaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -42,7 +41,10 @@ public class EquipeService {
 
     @Transactional(readOnly = true)
     public List<EquipeResponse> listarPorCooperativa(Integer cooperativaId) {
-        return repository.findByCooperativa_CooperativaId(cooperativaId).stream().map(this::toResponse).toList();
+        if (!cooperativaRepository.existsById(cooperativaId)) {
+            throw new RecursoNaoEncontradoException("Cooperativa", cooperativaId);
+        }
+        return repository.findByCooperativa(cooperativaId).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -51,14 +53,10 @@ public class EquipeService {
     }
 
     public EquipeResponse criar(EquipeRequest request) {
-        Cooperativa cooperativa = cooperativaRepository.findById(request.cooperativaId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", request.cooperativaId()));
-
         Funcionario gestor = funcionarioRepository.findById(request.gestorId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Funcionario", request.gestorId()));
 
         Equipe equipe = Equipe.builder()
-                .cooperativa(cooperativa)
                 .gestor(gestor)
                 .nome(request.nome())
                 .estaAtiva(request.estaAtiva() != null ? request.estaAtiva() : true)
@@ -70,13 +68,9 @@ public class EquipeService {
     public EquipeResponse atualizar(Integer id, EquipeRequest request) {
         Equipe equipe = findOrThrow(id);
 
-        Cooperativa cooperativa = cooperativaRepository.findById(request.cooperativaId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", request.cooperativaId()));
-
         Funcionario gestor = funcionarioRepository.findById(request.gestorId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Funcionario", request.gestorId()));
 
-        equipe.setCooperativa(cooperativa);
         equipe.setGestor(gestor);
         equipe.setNome(request.nome());
         if (request.estaAtiva() != null) equipe.setEstaAtiva(request.estaAtiva());
@@ -97,8 +91,8 @@ public class EquipeService {
     private EquipeResponse toResponse(Equipe e) {
         return new EquipeResponse(
                 e.getEquipeId(),
-                e.getCooperativa().getCooperativaId(),
-                e.getCooperativa().getNome(),
+                e.getGestor().getCooperativa().getCooperativaId(),
+                e.getGestor().getCooperativa().getNome(),
                 e.getGestor().getFuncionarioId(),
                 e.getGestor().getUsuario().getNome(),
                 e.getNome(),
