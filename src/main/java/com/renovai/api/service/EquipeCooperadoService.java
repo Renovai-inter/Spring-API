@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -37,17 +38,17 @@ public class EquipeCooperadoService {
     }
 
     @Transactional(readOnly = true)
-    public List<EquipeCooperadoResponse> listarPorEquipe(Integer equipeId) {
+    public List<EquipeCooperadoResponse> listarPorEquipe(UUID equipeId) {
         return repository.findByEquipe_EquipeId(equipeId).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<EquipeCooperadoResponse> listarPorCooperado(Integer cooperadoId) {
+    public List<EquipeCooperadoResponse> listarPorCooperado(UUID cooperadoId) {
         return repository.findByCooperado_FuncionarioId(cooperadoId).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public EquipeCooperadoResponse buscarPorId(Integer id) {
+    public EquipeCooperadoResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
 
@@ -75,19 +76,19 @@ public class EquipeCooperadoService {
         return toResponse(repository.save(equipeCooperado));
     }
 
-    public void remover(Integer id) {
+    public void remover(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
 
-    public void removerPorEquipeECooperado(Integer equipeId, Integer cooperadoId) {
+    public void removerPorEquipeECooperado(UUID equipeId, UUID cooperadoId) {
         if (!repository.existsByEquipe_EquipeIdAndCooperado_FuncionarioId(equipeId, cooperadoId)) {
             throw new RegraDeNegocioException("Vínculo entre equipe e cooperado não encontrado.");
         }
         repository.deleteByEquipe_EquipeIdAndCooperado_FuncionarioId(equipeId, cooperadoId);
     }
 
-    private EquipeCooperado findOrThrow(Integer id) {
+    private EquipeCooperado findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("EquipeCooperado", id));
     }

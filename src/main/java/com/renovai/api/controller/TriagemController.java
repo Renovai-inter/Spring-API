@@ -8,56 +8,46 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/triagens")
-@Tag(name = "Triagens", description = "Registro da separação de materiais por tipo")
+@Tag(name = "Triagens", description = "Registro de triagens de materiais recicláveis")
 public class TriagemController {
-
     private final TriagemService service;
-
-    public TriagemController(TriagemService service) {
-        this.service = service;
-    }
+    public TriagemController(TriagemService service) { this.service = service; }
 
     @GetMapping
-    @Operation(summary = "Listar triagens", description = "Filtrável por coleta.")
-    public ResponseEntity<List<TriagemResponse>> listar(
-            @RequestParam(required = false) Integer coletaId) {
-        if (coletaId != null) return ResponseEntity.ok(service.listarPorColeta(coletaId));
+    public ResponseEntity<List<TriagemResponse>> listar() {
         return ResponseEntity.ok(service.listarTodas());
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Buscar triagem por ID")
-    public ResponseEntity<TriagemResponse> buscarPorId(@PathVariable Integer id) {
+    public ResponseEntity<TriagemResponse> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
+    @GetMapping("/por-coleta/{coletaId}")
+    public ResponseEntity<List<TriagemResponse>> listarPorColeta(
+            @PathVariable UUID coletaId) {
+        return ResponseEntity.ok(service.listarPorColeta(coletaId));
+    }
+
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_SITE','GESTOR_COOPERATIVA','FUNCIONARIO_COOPERATIVA')")
-    @Operation(summary = "Registrar triagem",
-               description = "Cria triagem e incrementa automaticamente o estoque da cooperativa.")
     public ResponseEntity<TriagemResponse> criar(@RequestBody @Valid TriagemRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_SITE','GESTOR_COOPERATIVA','FUNCIONARIO_COOPERATIVA')")
-    @Operation(summary = "Atualizar triagem")
     public ResponseEntity<TriagemResponse> atualizar(
-            @PathVariable Integer id, @RequestBody @Valid TriagemRequest request) {
+            @PathVariable UUID id, @RequestBody @Valid TriagemRequest request) {
         return ResponseEntity.ok(service.atualizar(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_SITE','GESTOR_COOPERATIVA')")
-    @Operation(summary = "Excluir triagem")
-    public ResponseEntity<Void> deletar(@PathVariable Integer id) {
+    public ResponseEntity<Void> deletar(@PathVariable UUID id) {
         service.deletar(id);
         return ResponseEntity.noContent().build();
     }

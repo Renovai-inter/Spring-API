@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -33,23 +34,23 @@ public class AvaliacaoService {
     }
 
     @Transactional(readOnly = true)
-    public AvaliacaoResponse buscarPorId(Integer id) {
+    public AvaliacaoResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
 
     @Transactional(readOnly = true)
-    public List<AvaliacaoResponse> listarPorAvaliado(Integer avaliadoId) {
+    public List<AvaliacaoResponse> listarPorAvaliado(UUID avaliadoId) {
         return repository.findByAvaliado_PerfilId(avaliadoId).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public Double mediaNotasPorPerfil(Integer perfilId) {
+    public Double mediaNotasPorPerfil(UUID perfilId) {
         return repository.calcularMediaNotasByPerfil(perfilId);
     }
 
     @Transactional(readOnly = true)
-    public List<AvaliacaoResponse> listarPorPedido(Integer pedidoId) {
-        return repository.findByPedidoPedidoId(pedidoId).stream().map(this::toResponse).toList();
+    public List<AvaliacaoResponse> listarPorPedido(UUID pedidoId) {
+        return repository.findByPedido_PedidoId(pedidoId).stream().map(this::toResponse).toList();
     }
 
     public AvaliacaoResponse criar(AvaliacaoRequest request) {
@@ -62,11 +63,8 @@ public class AvaliacaoService {
         Perfil avaliado = perfilRepository.findById(request.avaliadoId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Perfil (avaliado)", request.avaliadoId()));
 
-        Pedido pedido = null;
-        if (request.pedidoId() != null) {
-            pedido = pedidoRepository.findById(request.pedidoId())
-                    .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido", request.pedidoId()));
-        }
+        Pedido pedido = pedidoRepository.findById(request.pedidoId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido", request.pedidoId()));
 
         Avaliacao avaliacao = Avaliacao.builder()
                 .avaliador(avaliador)
@@ -79,12 +77,12 @@ public class AvaliacaoService {
         return toResponse(repository.save(avaliacao));
     }
 
-    public void deletar(Integer id) {
+    public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
 
-    private Avaliacao findOrThrow(Integer id) {
+    private Avaliacao findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Avaliação", id));
     }

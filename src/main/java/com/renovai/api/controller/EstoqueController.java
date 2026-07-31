@@ -8,61 +8,52 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/estoques")
-@Tag(name = "Estoques", description = "Controle do estoque de materiais por cooperativa")
+@Tag(name = "Estoques", description = "Gestão de estoque de materiais")
 public class EstoqueController {
-
     private final EstoqueService service;
-
-    public EstoqueController(EstoqueService service) {
-        this.service = service;
-    }
+    public EstoqueController(EstoqueService service) { this.service = service; }
 
     @GetMapping
-    @Operation(summary = "Listar estoques", description = "Filtrável por cooperativa e disponibilidade.")
-    public ResponseEntity<List<EstoqueResponse>> listar(
-            @RequestParam(required = false) Integer cooperativaId,
-            @RequestParam(required = false) Boolean apenasDisponiveis) {
-        if (cooperativaId != null && Boolean.TRUE.equals(apenasDisponiveis)) {
-            return ResponseEntity.ok(service.listarDisponiveisPorCooperativa(cooperativaId));
-        }
-        if (cooperativaId != null) {
-            return ResponseEntity.ok(service.listarPorCooperativa(cooperativaId));
-        }
+    public ResponseEntity<List<EstoqueResponse>> listar() {
         return ResponseEntity.ok(service.listarTodos());
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Buscar estoque por ID")
-    public ResponseEntity<EstoqueResponse> buscarPorId(@PathVariable Integer id) {
+    public ResponseEntity<EstoqueResponse> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
+    @GetMapping("/por-cooperativa/{cooperativaId}")
+    public ResponseEntity<List<EstoqueResponse>> listarPorCooperativa(
+            @PathVariable UUID cooperativaId) {
+        return ResponseEntity.ok(service.listarPorCooperativa(cooperativaId));
+    }
+
+    @GetMapping("/disponiveis/por-cooperativa/{cooperativaId}")
+    public ResponseEntity<List<EstoqueResponse>> listarDisponiveisPorCooperativa(
+            @PathVariable UUID cooperativaId) {
+        return ResponseEntity.ok(service.listarDisponiveisPorCooperativa(cooperativaId));
+    }
+
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_SITE','GESTOR_COOPERATIVA')")
-    @Operation(summary = "Criar registro de estoque")
     public ResponseEntity<EstoqueResponse> criar(@RequestBody @Valid EstoqueRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_SITE','GESTOR_COOPERATIVA')")
-    @Operation(summary = "Atualizar quantidade em estoque")
     public ResponseEntity<EstoqueResponse> atualizar(
-            @PathVariable Integer id, @RequestBody @Valid EstoqueRequest request) {
+            @PathVariable UUID id, @RequestBody @Valid EstoqueRequest request) {
         return ResponseEntity.ok(service.atualizar(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN_SITE')")
-    @Operation(summary = "Excluir registro de estoque")
-    public ResponseEntity<Void> deletar(@PathVariable Integer id) {
+    public ResponseEntity<Void> deletar(@PathVariable UUID id) {
         service.deletar(id);
         return ResponseEntity.noContent().build();
     }

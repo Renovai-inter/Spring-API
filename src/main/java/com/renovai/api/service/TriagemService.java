@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -21,22 +22,19 @@ public class TriagemService {
     private final MaterialRepository materialRepository;
     private final StatusRepository statusRepository;
     private final EstoqueRepository estoqueRepository;
-    private final CooperativaRepository cooperativaRepository;
 
     public TriagemService(TriagemRepository repository,
                           EquipeRepository equipeRepository,
                           ColetaRepository coletaRepository,
                           MaterialRepository materialRepository,
                           StatusRepository statusRepository,
-                          EstoqueRepository estoqueRepository,
-                          CooperativaRepository cooperativaRepository) {
+                          EstoqueRepository estoqueRepository) {
         this.repository = repository;
         this.equipeRepository = equipeRepository;
         this.coletaRepository = coletaRepository;
         this.materialRepository = materialRepository;
         this.statusRepository = statusRepository;
         this.estoqueRepository = estoqueRepository;
-        this.cooperativaRepository = cooperativaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -45,13 +43,14 @@ public class TriagemService {
     }
 
     @Transactional(readOnly = true)
-    public TriagemResponse buscarPorId(Integer id) {
+    public TriagemResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
 
     @Transactional(readOnly = true)
-    public List<TriagemResponse> listarPorColeta(Integer coletaId) {
-        return repository.findByColeta_ColetaId(coletaId).stream().map(this::toResponse).toList();
+    public List<TriagemResponse> listarPorColeta(UUID coletaId) {
+        // PK de Coleta é eventoId — o repository usa findByColeta_EventoId
+        return repository.findByColeta_EventoId(coletaId).stream().map(this::toResponse).toList();
     }
 
     public TriagemResponse criar(TriagemRequest request) {
@@ -68,24 +67,26 @@ public class TriagemService {
                     .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
         }
 
-        Triagem triagem = Triagem.builder()
-                .equipe(equipe)
-                .coleta(coleta)
-                .material(material)
-                .status(status)
-                .quantidadeKg(request.quantidadeKg())
-                .quantidadeRejeitoKg(request.quantidadeRejeitoKg())
-                .build();
+        // Triagem não tem @Builder (herda EventoOperacional) — usa setters
+        Triagem triagem = new Triagem();
+        triagem.setEquipe(equipe);
+        triagem.setColeta(coleta);
+        triagem.setMaterial(material);
+        triagem.setStatus(status);
+        triagem.setQuantidadeKg(request.quantidadeKg());
+        triagem.setQuantidadeRejeitoKg(
+                request.quantidadeRejeitoKg() != null ? request.quantidadeRejeitoKg() : BigDecimal.ZERO);
 
         Triagem saved = repository.save(triagem);
         atualizarEstoque(equipe.getGestor().getCooperativa(), material, request.quantidadeKg());
         return toResponse(saved);
     }
 
-    public TriagemResponse atualizar(Integer id, TriagemRequest request) {
+    public TriagemResponse atualizar(UUID id, TriagemRequest request) {
         Triagem triagem = findOrThrow(id);
         triagem.setQuantidadeKg(request.quantidadeKg());
-        triagem.setQuantidadeRejeitoKg(request.quantidadeRejeitoKg());
+        triagem.setQuantidadeRejeitoKg(
+                request.quantidadeRejeitoKg() != null ? request.quantidadeRejeitoKg() : BigDecimal.ZERO);
         if (request.statusId() != null) {
             Status status = statusRepository.findById(request.statusId())
                     .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
@@ -94,43 +95,44 @@ public class TriagemService {
         return toResponse(repository.save(triagem));
     }
 
-    public void deletar(Integer id) {
+    public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
 
-    /** Incrementa estoque da cooperativa para o material triado */
     private void atualizarEstoque(Cooperativa cooperativa, Material material, BigDecimal quantidade) {
         Estoque estoque = estoqueRepository
                 .findByCooperativa_CooperativaIdAndMaterial_MaterialId(
                         cooperativa.getCooperativaId(), material.getMaterialId())
-                .orElseGet(() -> Estoque.builder()
-                        .cooperativa(cooperativa)
-                        .material(material)
-                        .quantidadeKg(BigDecimal.ZERO)
-                        .build());
-
+                .orElseGet(() -> {
+                    Estoque novo = new Estoque();
+                    novo.setCooperativa(cooperativa);
+                    novo.setMaterial(material);
+                    novo.setQuantidadeKg(BigDecimal.ZERO);
+                    return novo;
+                });
         estoque.setQuantidadeKg(estoque.getQuantidadeKg().add(quantidade));
         estoqueRepository.save(estoque);
     }
 
-    private Triagem findOrThrow(Integer id) {
+    private Triagem findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Triagem", id));
     }
 
     private TriagemResponse toResponse(Triagem t) {
         return new TriagemResponse(
-                t.getTriagemId(),
+                t.getEventoId(),                // PK herdada de EventoOperacional
                 t.getEquipe().getEquipeId(),
                 t.getEquipe().getNome(),
-                t.getColeta().getColetaId(),
+                t.getColeta().getEventoId(),    // PK herdada da Coleta
                 t.getMaterial().getMaterialId(),
-                t.getMaterial().getCategoria(),
+                t.getMaterial().getCategoria() != null
+                        ? t.getMaterial().getCategoria().getNomeCategoria() : null,
                 t.getStatus() != null ? t.getStatus().getStatusAtual() : null,
                 t.getQuantidadeKg(),
                 t.getQuantidadeRejeitoKg(),
-                t.getDataTriagem()
+                t.getDataEvento()               // campo herdado de EventoOperacional
         );
     }
 }

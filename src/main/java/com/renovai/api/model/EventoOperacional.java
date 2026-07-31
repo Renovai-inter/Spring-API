@@ -6,38 +6,33 @@ import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Inheritance;
+import jakarta.persistence.InheritanceType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "telefones")
+@Table(name = "eventos_operacionais")
+@Inheritance(strategy = InheritanceType.JOINED)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class Telefone {
+public class EventoOperacional {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID telefoneId;
+    private UUID eventoId;
+
+    @Column(name = "data_evento", nullable = false)
+    private LocalDateTime dataEvento = LocalDateTime.now();
 
     @ManyToOne
-    @JoinColumn(name = "perfil_id", foreignKey = @ForeignKey(name = "fk_telefones_perfis"))
-    private Perfil perfil;
-
-    @ManyToOne
-    @JoinColumn(name = "usuario_id", foreignKey = @ForeignKey(name = "fk_telefones_usuarios"))
-    private Usuario usuario;
-
-    @Column(length = 3)
-    private String ddd;
-
-    @Column(nullable = false, length = 20)
-    private String telefone;
+    @JoinColumn(name = "status_id", foreignKey = @ForeignKey(name = "fk_eventos_status"))
+    private Status status;
 }

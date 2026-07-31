@@ -1,18 +1,29 @@
 package com.renovai.api.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.UUID;
 
 @Entity
 @Table(name = "cargos")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Cargo {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "cargo_id")
-    private Integer cargoId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID cargoId;
 
-    @Column(name = "cargo", nullable = false, length = 10)
+    @Column(nullable = false, unique = true, length = 50)
     private String cargo;
 }

@@ -4,66 +4,49 @@ import com.renovai.api.dto.request.Requests.CooperativaRequest;
 import com.renovai.api.dto.response.Responses.CooperativaResponse;
 import com.renovai.api.service.CooperativaService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/cooperativas")
-@Tag(name = "Cooperativas", description = "Gestão das cooperativas de reciclagem")
+@Tag(name = "Cooperativas", description = "Gestão de cooperativas de reciclagem")
 public class CooperativaController {
-
     private final CooperativaService service;
-
-    public CooperativaController(CooperativaService service) {
-        this.service = service;
-    }
+    public CooperativaController(CooperativaService service) { this.service = service; }
 
     @GetMapping
-    @Operation(summary = "Listar todas as cooperativas")
-    public ResponseEntity<List<CooperativaResponse>> listar(
-            @RequestParam(required = false) @Parameter(description = "Filtrar por nome") String nome) {
-        if (nome != null && !nome.isBlank()) {
-            return ResponseEntity.ok(service.buscarPorNome(nome));
-        }
+    public ResponseEntity<List<CooperativaResponse>> listar() {
         return ResponseEntity.ok(service.listarTodas());
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Buscar cooperativa por ID")
-    @ApiResponse(responseCode = "404", description = "Cooperativa não encontrada")
-    public ResponseEntity<CooperativaResponse> buscarPorId(@PathVariable Integer id) {
+    public ResponseEntity<CooperativaResponse> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
+    @GetMapping("/por-nome/{nome}")
+    public ResponseEntity<List<CooperativaResponse>> buscarPorNome(@PathVariable String nome) {
+        return ResponseEntity.ok(service.buscarPorNome(nome));
+    }
+
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_SITE', 'ADMIN_COOPERATIVA')")
-    @Operation(summary = "Cadastrar nova cooperativa")
     public ResponseEntity<CooperativaResponse> criar(@RequestBody @Valid CooperativaRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_SITE', 'ADMIN_COOPERATIVA')")
-    @Operation(summary = "Atualizar cooperativa")
     public ResponseEntity<CooperativaResponse> atualizar(
-            @PathVariable Integer id,
-            @RequestBody @Valid CooperativaRequest request) {
+            @PathVariable UUID id, @RequestBody @Valid CooperativaRequest request) {
         return ResponseEntity.ok(service.atualizar(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN_SITE')")
-    @Operation(summary = "Excluir cooperativa")
-    @ApiResponse(responseCode = "204", description = "Excluída com sucesso")
-    public ResponseEntity<Void> deletar(@PathVariable Integer id) {
+    public ResponseEntity<Void> deletar(@PathVariable UUID id) {
         service.deletar(id);
         return ResponseEntity.noContent().build();
     }

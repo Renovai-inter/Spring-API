@@ -2,41 +2,35 @@ package com.renovai.api.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.UUID;
-import java.time.LocalDate;
 
 @Entity
-@Table(name = "usuarios")
+@Table(name = "categorias_materiais")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Usuario {
+public class CategoriaMaterial {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID usuarioId;
+    private UUID categoriaId;
 
-    @Column(nullable = false, length = 255)
-    private String nome;
+    @ManyToOne
+    @JoinColumn(name = "categoria_pai_id", foreignKey = @ForeignKey(name = "fk_categorias_pai"))
+    private CategoriaMaterial categoriaPai;
 
-    @Column(nullable = false, unique = true, length = 255)
-    private String email;
-
-    @Column(nullable = false, unique = true, length = 14)
-    private String cpf;
-
-    @Column(nullable = false, length = 255)
-    private String senhaHash;
-
-    @Column(name = "data_nascimento")
-    private LocalDate dataNascimento;
+    @Column(name = "nome_categoria", nullable = false, length = 100)
+    private String nomeCategoria;
 }

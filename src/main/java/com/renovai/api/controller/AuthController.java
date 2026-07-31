@@ -13,22 +13,18 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/auth")
 @Tag(name = "Autenticação", description = "Login e geração de token JWT")
 public class AuthController {
-
     private final AuthService authService;
-
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
+    public AuthController(AuthService authService) { this.authService = authService; }
 
     @PostMapping("/login")
-    @Operation(summary = "Realizar login", description = "Autentica um perfil e retorna um token JWT.")
+    @Operation(summary = "Realizar login")
     public ResponseEntity<LoginResponse> login(@RequestBody @Valid LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "Logout", description = "Client deve descartar o token. JWT é stateless.")
-    public ResponseEntity<Void> logout() {
-        return ResponseEntity.noContent().build();
+    @Operation(summary = "Logout")
+    public ResponseEntity<Void> logout() { 
+        return ResponseEntity.noContent().build(); 
     }
 }

@@ -1,34 +1,43 @@
 package com.renovai.api.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "equipes")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Equipe {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "equipe_id")
-    private Integer equipeId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID equipeId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "gestor_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "gestor_id", nullable = false, foreignKey = @ForeignKey(name = "fk_equipes_gestores"))
     private Funcionario gestor;
 
-    @Column(name = "nome", length = 255)
+    @Column(length = 255)
     private String nome;
 
-    @Column(name = "data_criacao")
-    private LocalDateTime dataCriacao;
+    @Column(name = "data_criacao", nullable = false)
+    private LocalDateTime dataCriacao = LocalDateTime.now();
 
-    @Column(name = "esta_ativa")
+    @Column(name = "esta_ativa", nullable = false)
     private Boolean estaAtiva = true;
-
-    @PrePersist
-    public void prePersist() {
-        this.dataCriacao = LocalDateTime.now();
-    }
 }

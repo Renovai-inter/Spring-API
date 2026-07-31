@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -40,7 +41,7 @@ public class EquipeService {
     }
 
     @Transactional(readOnly = true)
-    public List<EquipeResponse> listarPorCooperativa(Integer cooperativaId) {
+    public List<EquipeResponse> listarPorCooperativa(UUID cooperativaId) {
         if (!cooperativaRepository.existsById(cooperativaId)) {
             throw new RecursoNaoEncontradoException("Cooperativa", cooperativaId);
         }
@@ -48,7 +49,7 @@ public class EquipeService {
     }
 
     @Transactional(readOnly = true)
-    public EquipeResponse buscarPorId(Integer id) {
+    public EquipeResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
 
@@ -65,7 +66,7 @@ public class EquipeService {
         return toResponse(repository.save(equipe));
     }
 
-    public EquipeResponse atualizar(Integer id, EquipeRequest request) {
+    public EquipeResponse atualizar(UUID id, EquipeRequest request) {
         Equipe equipe = findOrThrow(id);
 
         Funcionario gestor = funcionarioRepository.findById(request.gestorId())
@@ -78,12 +79,12 @@ public class EquipeService {
         return toResponse(repository.save(equipe));
     }
 
-    public void deletar(Integer id) {
+    public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
 
-    private Equipe findOrThrow(Integer id) {
+    private Equipe findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Equipe", id));
     }

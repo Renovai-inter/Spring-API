@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -32,18 +33,18 @@ public class EstoqueService {
     }
 
     @Transactional(readOnly = true)
-    public EstoqueResponse buscarPorId(Integer id) {
+    public EstoqueResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
 
     @Transactional(readOnly = true)
-    public List<EstoqueResponse> listarPorCooperativa(Integer cooperativaId) {
+    public List<EstoqueResponse> listarPorCooperativa(UUID cooperativaId) {
         return repository.findByCooperativa_CooperativaId(cooperativaId)
                 .stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<EstoqueResponse> listarDisponiveisPorCooperativa(Integer cooperativaId) {
+    public List<EstoqueResponse> listarDisponiveisPorCooperativa(UUID cooperativaId) {
         return repository.findDisponiveisByCooperativa(cooperativaId)
                 .stream().map(this::toResponse).toList();
     }
@@ -62,20 +63,18 @@ public class EstoqueService {
         return toResponse(repository.save(estoque));
     }
 
-    
-
-    public EstoqueResponse atualizar(Integer id, EstoqueRequest request) {
+    public EstoqueResponse atualizar(UUID id, EstoqueRequest request) {
         Estoque estoque = findOrThrow(id);
         estoque.setQuantidadeKg(request.quantidadeKg());
         return toResponse(repository.save(estoque));
     }
 
-    public void deletar(Integer id) {
+    public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
 
-    private Estoque findOrThrow(Integer id) {
+    private Estoque findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Estoque", id));
     }
@@ -86,7 +85,9 @@ public class EstoqueService {
                 e.getCooperativa().getCooperativaId(),
                 e.getCooperativa().getNome(),
                 e.getMaterial().getMaterialId(),
-                e.getMaterial().getCategoria(),
+                // Retorna o nome da categoria em vez do objeto CategoriaMaterial
+                e.getMaterial().getCategoria() != null
+                        ? e.getMaterial().getCategoria().getNomeCategoria() : null,
                 e.getQuantidadeKg(),
                 e.getDataAtualizacao()
         );

@@ -9,7 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,30 +18,35 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "estoques", uniqueConstraints = {
-    @UniqueConstraint(name = "uq_cooperativa_material", columnNames = {"cooperativa_id", "material_id"})
-})
+@Table(name = "movimentacoes_estoques")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Estoque {
+public class MovimentacaoEstoque {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID estoqueId;
+    private UUID movimentacaoId;
 
     @ManyToOne
-    @JoinColumn(name = "cooperativa_id", nullable = false, foreignKey = @ForeignKey(name = "fk_estoques_cooperativas"))
-    private Cooperativa cooperativa;
+    @JoinColumn(name = "estoque_id", nullable = false, foreignKey = @ForeignKey(name = "fk_movimentacoes_estoques"))
+    private Estoque estoque;
 
     @ManyToOne
-    @JoinColumn(name = "material_id", nullable = false, foreignKey = @ForeignKey(name = "fk_estoques_materiais"))
-    private Material material;
+    @JoinColumn(name = "triagem_id", foreignKey = @ForeignKey(name = "fk_movimentacoes_triagens"))
+    private Triagem triagem;
+
+    @ManyToOne
+    @JoinColumn(name = "item_id", foreignKey = @ForeignKey(name = "fk_movimentacoes_itens"))
+    private Item item;
 
     @Column(name = "quantidade_kg", nullable = false, precision = 10, scale = 3)
-    private BigDecimal quantidadeKg = BigDecimal.ZERO;
+    private BigDecimal quantidadeKg;
 
-    @Column(name = "data_atualizacao", nullable = false)
-    private LocalDateTime dataAtualizacao = LocalDateTime.now();
+    @Column(name = "tipo_movimentacao", length = 10)
+    private String tipoMovimentacao;
+
+    @Column(name = "data_movimentacao", nullable = false)
+    private LocalDateTime dataMovimentacao = LocalDateTime.now();
 }

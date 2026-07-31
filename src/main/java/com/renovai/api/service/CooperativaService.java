@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -26,7 +27,7 @@ public class CooperativaService {
     }
 
     @Transactional(readOnly = true)
-    public CooperativaResponse buscarPorId(Integer id) {
+    public CooperativaResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
 
@@ -40,27 +41,27 @@ public class CooperativaService {
         Cooperativa cooperativa = Cooperativa.builder()
                 .nome(request.nome())
                 .descricao(request.descricao())
-                .numeroCooperados(request.numeroCooperados())
+                .numeroCooperados(request.numeroCooperados() != null ? request.numeroCooperados() : 0)
                 .horarioFuncionamento(request.horarioFuncionamento())
                 .build();
         return toResponse(repository.save(cooperativa));
     }
 
-    public CooperativaResponse atualizar(Integer id, CooperativaRequest request) {
+    public CooperativaResponse atualizar(UUID id, CooperativaRequest request) {
         Cooperativa cooperativa = findOrThrow(id);
         cooperativa.setNome(request.nome());
         cooperativa.setDescricao(request.descricao());
-        cooperativa.setNumeroCooperados(request.numeroCooperados());
+        cooperativa.setNumeroCooperados(request.numeroCooperados() != null ? request.numeroCooperados() : cooperativa.getNumeroCooperados());
         cooperativa.setHorarioFuncionamento(request.horarioFuncionamento());
         return toResponse(repository.save(cooperativa));
     }
 
-    public void deletar(Integer id) {
+    public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
 
-    private Cooperativa findOrThrow(Integer id) {
+    private Cooperativa findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", id));
     }

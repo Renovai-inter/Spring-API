@@ -1,33 +1,44 @@
 package com.renovai.api.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.UUID;
 
 @Entity
 @Table(name = "enderecos")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Endereco {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "endereco_id")
-    private Integer enderecoId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID enderecoId;
 
-    @Column(name = "cep", length = 9)
+    @Column(length = 9)
     private String cep;
 
-    @Column(name = "logradouro", length = 255)
+    @Column(length = 255)
     private String logradouro;
 
-    @Column(name = "numero", length = 20)
+    @Column(length = 20)
     private String numero;
 
-    @Column(name = "complemento", length = 255)
+    @Column(length = 255)
     private String complemento;
 
-    @Column(name = "bairro", length = 100)
+    @Column(length = 100)
     private String bairro;
 
-    @Column(name = "cidade", length = 100)
+    @Column(length = 100)
     private String cidade;
 }

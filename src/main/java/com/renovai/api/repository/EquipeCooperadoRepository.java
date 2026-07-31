@@ -5,11 +5,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Repository
-public interface EquipeCooperadoRepository extends JpaRepository<EquipeCooperado, Integer> {
-    List<EquipeCooperado> findByEquipe_EquipeId(Integer equipeId);
-    List<EquipeCooperado> findByCooperado_FuncionarioId(Integer funcionarioId);
-    boolean existsByEquipe_EquipeIdAndCooperado_FuncionarioId(Integer equipeId, Integer funcionarioId);
-    void deleteByEquipe_EquipeIdAndCooperado_FuncionarioId(Integer equipeId, Integer funcionarioId);
+public interface EquipeCooperadoRepository extends JpaRepository<EquipeCooperado, UUID> {
+    List<EquipeCooperado> findByEquipe_EquipeId(UUID equipeId);
+    List<EquipeCooperado> findByCooperado_FuncionarioId(UUID funcionarioId);
+    boolean existsByEquipe_EquipeIdAndCooperado_FuncionarioId(UUID equipeId, UUID funcionarioId);
+    void deleteByEquipe_EquipeIdAndCooperado_FuncionarioId(UUID equipeId, UUID funcionarioId);
 }

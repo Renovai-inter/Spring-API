@@ -8,59 +8,54 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/materiais")
-@Tag(name = "Materiais", description = "Cadastro e consulta de materiais recicláveis")
+@Tag(name = "Materiais", description = "Gestão de materiais recicláveis")
 public class MaterialController {
-
     private final MaterialService service;
-
-    public MaterialController(MaterialService service) {
-        this.service = service;
-    }
+    public MaterialController(MaterialService service) { this.service = service; }
 
     @GetMapping
-    @Operation(summary = "Listar todos os materiais",
-               description = "Filtrar por categoria ou listar apenas disponíveis.")
-    public ResponseEntity<List<MaterialResponse>> listar(
-            @RequestParam(required = false) String categoria,
-            @RequestParam(required = false) Boolean apenasDisponiveis) {
-        if (categoria != null) return ResponseEntity.ok(service.buscarPorCategoria(categoria));
-        if (Boolean.TRUE.equals(apenasDisponiveis)) return ResponseEntity.ok(service.listarDisponiveis());
+    public ResponseEntity<List<MaterialResponse>> listar() {
         return ResponseEntity.ok(service.listarTodos());
     }
 
+    @GetMapping("/disponiveis")
+    public ResponseEntity<List<MaterialResponse>> listarDisponiveis() {
+        return ResponseEntity.ok(service.listarDisponiveis());
+    }
+
     @GetMapping("/{id}")
-    @Operation(summary = "Buscar material por ID")
-    public ResponseEntity<MaterialResponse> buscarPorId(@PathVariable Integer id) {
+    public ResponseEntity<MaterialResponse> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
+    @GetMapping("/por-categoria")
+    public ResponseEntity<List<MaterialResponse>> buscarPorCategoria(
+            @RequestParam(required = false) UUID categoriaId) {
+        return ResponseEntity.ok(service.buscarPorCategoria(categoriaId));
+    }
+
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_SITE', 'GESTOR_COOPERATIVA')")
-    @Operation(summary = "Cadastrar novo material")
     public ResponseEntity<MaterialResponse> criar(@RequestBody @Valid MaterialRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_SITE', 'GESTOR_COOPERATIVA')")
-    @Operation(summary = "Atualizar material")
     public ResponseEntity<MaterialResponse> atualizar(
-            @PathVariable Integer id, @RequestBody @Valid MaterialRequest request) {
+            @PathVariable UUID id, @RequestBody @Valid MaterialRequest request) {
         return ResponseEntity.ok(service.atualizar(id, request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN_SITE')")
-    @Operation(summary = "Excluir material")
-    public ResponseEntity<Void> deletar(@PathVariable Integer id) {
+    public ResponseEntity<Void> deletar(@PathVariable UUID id) {
         service.deletar(id);
         return ResponseEntity.noContent().build();
     }
+
+    
 }

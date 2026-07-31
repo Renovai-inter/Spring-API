@@ -15,38 +15,34 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.UUID;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "rateios", uniqueConstraints = {
-    @UniqueConstraint(name = "uq_rateio_cooperativa_mes", columnNames = {"cooperativa_id", "mes_referencia"})
+@Table(name = "lancamentos_despesas", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_despesa_mes", columnNames = {"despesa_id", "mes_referencia"})
 })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Rateio {
+public class LancamentoDespesa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID rateioId;
+    private UUID lancamentoId;
 
     @ManyToOne
-    @JoinColumn(name = "cooperativa_id", nullable = false, foreignKey = @ForeignKey(name = "fk_rateios_cooperativas"))
-    private Cooperativa cooperativa;
+    @JoinColumn(name = "despesa_id", nullable = false, foreignKey = @ForeignKey(name = "fk_lancamentos_despesas_despesa"))
+    private Despesa despesa;
 
-    @ManyToOne
-    @JoinColumn(name = "gestor_id", nullable = false, foreignKey = @ForeignKey(name = "fk_rateios_gestores"))
-    private Funcionario gestor;
-
-    @ManyToOne
-    @JoinColumn(name = "tipo_rateio_id", foreignKey = @ForeignKey(name = "fk_rateios_tipos"))
-    private TipoRateio tipoRateio;
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal valor;
 
     @Column(name = "mes_referencia", nullable = false)
     private LocalDate mesReferencia;
 
-    @Column(name = "data_rateio", nullable = false)
-    private LocalDateTime dataRateio = LocalDateTime.now();
+    @Column(name = "data_lancamento", nullable = false)
+    private LocalDateTime dataLancamento = LocalDateTime.now();
 }

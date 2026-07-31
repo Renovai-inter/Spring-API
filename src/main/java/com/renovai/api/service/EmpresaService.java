@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -30,7 +31,7 @@ public class EmpresaService {
     }
 
     @Transactional(readOnly = true)
-    public EmpresaResponse buscarPorId(Integer id) {
+    public EmpresaResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
 
@@ -53,7 +54,7 @@ public class EmpresaService {
         return toResponse(repository.save(empresa));
     }
 
-    public EmpresaResponse atualizar(Integer id, EmpresaRequest request) {
+    public EmpresaResponse atualizar(UUID id, EmpresaRequest request) {
         Empresa empresa = findOrThrow(id);
         empresa.setNome(request.nome());
         empresa.setDescricao(request.descricao());
@@ -65,25 +66,29 @@ public class EmpresaService {
         return toResponse(repository.save(empresa));
     }
 
-    public void deletar(Integer id) {
+    public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
 
-    private Empresa findOrThrow(Integer id) {
+    private Empresa findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Empresa", id));
     }
 
-    public Empresa findEntityById(Integer id) {
+    public Empresa findEntityById(UUID id) {
         return findOrThrow(id);
     }
 
     private EmpresaResponse toResponse(Empresa e) {
         return new EmpresaResponse(
-                e.getEmpresaId(), e.getNome(), e.getDescricao(),
+                e.getEmpresaId(),
+                e.getNome(),
+                e.getDescricao(),
                 e.getMaterial() != null ? e.getMaterial().getMaterialId() : null,
-                e.getMaterial() != null ? e.getMaterial().getCategoria() : null
+                // Expõe o nome da categoria em vez de passar o objeto CategoriaMaterial
+                e.getMaterial() != null && e.getMaterial().getCategoria() != null
+                        ? e.getMaterial().getCategoria().getNomeCategoria() : null
         );
     }
 }

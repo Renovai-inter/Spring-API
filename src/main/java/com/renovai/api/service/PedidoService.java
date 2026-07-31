@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -46,12 +47,12 @@ public class PedidoService {
     }
 
     @Transactional(readOnly = true)
-    public PedidoResponse buscarPorId(Integer id) {
+    public PedidoResponse buscarPorId(UUID id) {
         return toPedidoResponse(findPedidoOrThrow(id));
     }
 
     @Transactional(readOnly = true)
-    public List<PedidoResponse> listarPorEmpresa(Integer empresaId) {
+    public List<PedidoResponse> listarPorEmpresa(UUID empresaId) {
         return pedidoRepository.findByEmpresa_EmpresaId(empresaId)
                 .stream().map(this::toPedidoResponse).toList();
     }
@@ -63,7 +64,7 @@ public class PedidoService {
         return toPedidoResponse(pedidoRepository.save(pedido));
     }
 
-    public void deletarPedido(Integer id) {
+    public void deletarPedido(UUID id) {
         findPedidoOrThrow(id);
         pedidoRepository.deleteById(id);
     }
@@ -71,7 +72,7 @@ public class PedidoService {
     // ── Itens ────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<ItemResponse> listarItensPorPedido(Integer pedidoId) {
+    public List<ItemResponse> listarItensPorPedido(UUID pedidoId) {
         return itemRepository.findByPedido_PedidoId(pedidoId)
                 .stream().map(this::toItemResponse).toList();
     }
@@ -82,15 +83,14 @@ public class PedidoService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Material", request.materialId()));
 
         Item item = Item.builder()
-                .pedido(pedido)
-                .material(material)
+                .pedido(pedido).material(material)
                 .quantidadeKg(request.quantidadeKg())
                 .precoUnitario(request.precoUnitario())
                 .build();
         return toItemResponse(itemRepository.save(item));
     }
 
-    public void removerItem(Integer itemId) {
+    public void removerItem(UUID itemId) {
         itemRepository.findById(itemId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Item", itemId));
         itemRepository.deleteById(itemId);
@@ -99,7 +99,7 @@ public class PedidoService {
     // ── Pedido × Cooperativa ─────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<PedidoCooperativaResponse> listarPorCooperativa(Integer cooperativaId) {
+    public List<PedidoCooperativaResponse> listarPorCooperativa(UUID cooperativaId) {
         return pedidoCooperativaRepository.findByCooperativa_CooperativaId(cooperativaId)
                 .stream().map(this::toPedidoCoopResponse).toList();
     }
@@ -116,7 +116,7 @@ public class PedidoService {
         return toPedidoCoopResponse(pedidoCooperativaRepository.save(pc));
     }
 
-    public PedidoCooperativaResponse atualizarStatusPedidoCooperativa(Integer id, Integer novoStatusId) {
+    public PedidoCooperativaResponse atualizarStatusPedidoCooperativa(UUID id, UUID novoStatusId) {
         PedidoCooperativa pc = pedidoCooperativaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("PedidoCooperativa", id));
         Status status = statusRepository.findById(novoStatusId)
@@ -127,7 +127,7 @@ public class PedidoService {
 
     // ── Helpers ──────────────────────────────────────────────
 
-    private Pedido findPedidoOrThrow(Integer id) {
+    private Pedido findPedidoOrThrow(UUID id) {
         return pedidoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido", id));
     }
@@ -138,7 +138,7 @@ public class PedidoService {
                 p.getEmpresa().getEmpresaId(),
                 p.getEmpresa().getNome(),
                 p.getDataPedido(),
-                p.getDataFinal()
+                p.getDataConclusao()   // era p.getDataFinal() — campo correto é dataConclusao
         );
     }
 
@@ -147,7 +147,9 @@ public class PedidoService {
                 i.getItemId(),
                 i.getPedido().getPedidoId(),
                 i.getMaterial().getMaterialId(),
-                i.getMaterial().getCategoria(),
+                // era i.getMaterial().getCategoria() que retorna objeto — agora pega o nome
+                i.getMaterial().getCategoria() != null
+                        ? i.getMaterial().getCategoria().getNomeCategoria() : null,
                 i.getQuantidadeKg(),
                 i.getPrecoUnitario()
         );

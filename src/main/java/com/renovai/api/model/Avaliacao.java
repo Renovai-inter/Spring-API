@@ -1,42 +1,51 @@
 package com.renovai.api.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "avaliacoes")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Avaliacao {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "avaliacao_id")
-    private Integer avaliacaoId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID avaliacaoId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "avaliador_id")
+    @ManyToOne
+    @JoinColumn(name = "avaliador_id", nullable = false, foreignKey = @ForeignKey(name = "fk_avaliacoes_avaliador"))
     private Perfil avaliador;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "avaliado_id")
+    @ManyToOne
+    @JoinColumn(name = "avaliado_id", nullable = false, foreignKey = @ForeignKey(name = "fk_avaliacoes_avaliado"))
     private Perfil avaliado;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pedido_id")
+    @ManyToOne
+    @JoinColumn(name = "pedido_id", nullable = false, foreignKey = @ForeignKey(name = "fk_avaliacoes_pedidos"))
     private Pedido pedido;
 
-    @Column(name = "nota")
+    @Column(nullable = true)
     private Integer nota;
 
-    @Column(name = "comentario", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String comentario;
 
-    @Column(name = "data_avaliacao")
-    private LocalDateTime dataAvaliacao;
-
-    @PrePersist
-    public void prePersist() {
-        this.dataAvaliacao = LocalDateTime.now();
-    }
+    @Column(name = "data_avaliacao", nullable = false)
+    private LocalDateTime dataAvaliacao = LocalDateTime.now();
 }

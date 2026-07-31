@@ -1,27 +1,43 @@
 package com.renovai.api.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.util.UUID;
 
 @Entity
-@Table(name = "pedidos_cooperativas")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Table(name = "pedidos_cooperativas", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_pedido_cooperativa", columnNames = {"pedido_id", "cooperativa_id"})
+})
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class PedidoCooperativa {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "pedido_cooperativa_id")
-    private Integer pedidoCooperativaId;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID pedidoCooperativaId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pedido_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "pedido_id", nullable = false, foreignKey = @ForeignKey(name = "fk_pedidos_coop_pedidos"))
     private Pedido pedido;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cooperativa_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "cooperativa_id", nullable = false, foreignKey = @ForeignKey(name = "fk_pedidos_coop_cooperativas"))
     private Cooperativa cooperativa;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "status_id", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "status_id", nullable = false, foreignKey = @ForeignKey(name = "fk_pedidos_coop_status"))
     private Status status;
 }

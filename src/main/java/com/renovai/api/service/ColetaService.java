@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -36,12 +37,12 @@ public class ColetaService {
     }
 
     @Transactional(readOnly = true)
-    public ColetaResponse buscarPorId(Integer id) {
+    public ColetaResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
 
     @Transactional(readOnly = true)
-    public List<ColetaResponse> listarPorCooperado(Integer cooperadoId) {
+    public List<ColetaResponse> listarPorCooperado(UUID cooperadoId) {
         return repository.findByCooperado_FuncionarioId(cooperadoId)
                 .stream().map(this::toResponse).toList();
     }
@@ -56,16 +57,16 @@ public class ColetaService {
                     .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
         }
 
-        Coleta coleta = Coleta.builder()
-                .cooperado(cooperado)
-                .status(status)
-                .origem(request.origem())
-                .quantidadeKg(request.quantidadeKg())
-                .build();
+        Coleta coleta = new Coleta();
+        coleta.setCooperado(cooperado);
+        coleta.setStatus(status);
+        coleta.setOrigem(request.origem());
+        coleta.setQuantidadeKg(request.quantidadeKg());
+
         return toResponse(repository.save(coleta));
     }
 
-    public ColetaResponse atualizar(Integer id, ColetaRequest request) {
+    public ColetaResponse atualizar(UUID id, ColetaRequest request) {
         Coleta coleta = findOrThrow(id);
         coleta.setOrigem(request.origem());
         coleta.setQuantidadeKg(request.quantidadeKg());
@@ -77,25 +78,25 @@ public class ColetaService {
         return toResponse(repository.save(coleta));
     }
 
-    public void deletar(Integer id) {
+    public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
 
-    private Coleta findOrThrow(Integer id) {
+    private Coleta findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Coleta", id));
     }
 
     private ColetaResponse toResponse(Coleta c) {
         return new ColetaResponse(
-                c.getColetaId(),
+                c.getEventoId(),                                                          // PK herdada
                 c.getCooperado().getFuncionarioId(),
                 c.getCooperado().getUsuario() != null ? c.getCooperado().getUsuario().getNome() : null,
                 c.getStatus() != null ? c.getStatus().getStatusAtual() : null,
                 c.getOrigem(),
                 c.getQuantidadeKg(),
-                c.getDataColeta()
+                c.getDataEvento()                                                         // campo herdado
         );
     }
 }

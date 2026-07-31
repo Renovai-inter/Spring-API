@@ -4,13 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import com.renovai.api.dto.response.Responses.ResultadoRateioIndividualResponse;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 public class Responses {
 
@@ -21,7 +17,7 @@ public class Responses {
     }
 
     public record CooperativaResponse(
-        Integer cooperativaId,
+        UUID cooperativaId,
         String nome,
         String descricao,
         Integer numeroCooperados,
@@ -29,29 +25,30 @@ public class Responses {
     ) {}
 
     public record EmpresaResponse(
-        Integer empresaId,
+        UUID empresaId,
         String nome,
         String descricao,
-        Integer materialId,
+        UUID materialId,
         String materialCategoria
     ) {}
 
     public record MaterialResponse(
-        Integer materialId,
-        String categoria,
+        UUID materialId,
+        UUID categoriaId,
+        String categoriaNome,
         BigDecimal precoSugerido,
         Boolean estaDisponivel
     ) {}
 
     public record UsuarioResponse(
-        Integer usuarioId,
+        UUID usuarioId,
         String nome,
         String cpf,
         LocalDate dataNascimento
     ) {}
 
     public record EnderecoResponse(
-        Integer enderecoId,
+        UUID enderecoId,
         String cep,
         String logradouro,
         String numero,
@@ -61,20 +58,20 @@ public class Responses {
     ) {}
 
     public record PerfilResponse(
-        Integer perfilId,
+        UUID perfilId,
         String email,
         String cnpj,
         Boolean estaAtivo,
         LocalDateTime dataCriacao,
-        Integer empresaId,
+        UUID empresaId,
         String empresaNome,
-        Integer cooperativaId,
+        UUID cooperativaId,
         String cooperativaNome
     ) {}
 
     public record ColetaResponse(
-        Integer coletaId,
-        Integer cooperadoId,
+        UUID coletaId,
+        UUID cooperadoId,
         String cooperadoNome,
         String statusAtual,
         String origem,
@@ -83,11 +80,11 @@ public class Responses {
     ) {}
 
     public record TriagemResponse(
-        Integer triagemId,
-        Integer equipeId,
+        UUID triagemId,
+        UUID equipeId,
         String equipeNome,
-        Integer coletaId,
-        Integer materialId,
+        UUID coletaId,
+        UUID materialId,
         String materialCategoria,
         String statusAtual,
         BigDecimal quantidadeKg,
@@ -96,18 +93,17 @@ public class Responses {
     ) {}
 
     public record PedidoResponse(
-        Integer pedidoId,
-        Integer empresaId,
+        UUID pedidoId,
+        UUID empresaId,
         String empresaNome,
         LocalDateTime dataPedido,
-        LocalDateTime dataFinal
+        LocalDateTime dataConclusao
     ) {}
-    
 
     public record ItemResponse(
-        Integer itemId,
-        Integer pedidoId,
-        Integer materialId,
+        UUID itemId,
+        UUID pedidoId,
+        UUID materialId,
         String materialCategoria,
         BigDecimal quantidadeKg,
         BigDecimal precoUnitario
@@ -119,38 +115,38 @@ public class Responses {
     ) {}
 
     public record EstoqueResponse(
-        Integer estoqueId,
-        Integer cooperativaId,
+        UUID estoqueId,
+        UUID cooperativaId,
         String cooperativaNome,
-        Integer materialId,
+        UUID materialId,
         String materialCategoria,
         BigDecimal quantidadeKg,
         LocalDateTime dataAtualizacao
     ) {}
 
     public record AvaliacaoResponse(
-        Integer avaliacaoId,
-        Integer avaliadorId,
-        Integer avaliadoId,
-        Integer pedidoId,
+        UUID avaliacaoId,
+        UUID avaliadorId,
+        UUID avaliadoId,
+        UUID pedidoId,
         Integer nota,
         String comentario,
         LocalDateTime dataAvaliacao
     ) {}
 
     public record PedidoCooperativaResponse(
-        Integer pedidoCooperativaId,
-        Integer pedidoId,
-        Integer cooperativaId,
+        UUID pedidoCooperativaId,
+        UUID pedidoId,
+        UUID cooperativaId,
         String cooperativaNome,
         String statusAtual
     ) {}
 
     public record EquipeResponse(
-        Integer equipeId,
-        Integer cooperativaId,
+        UUID equipeId,
+        UUID cooperativaId,
         String cooperativaNome,
-        Integer gestorId,
+        UUID gestorId,
         String gestorNome,
         String nome,
         Boolean estaAtiva,
@@ -158,20 +154,20 @@ public class Responses {
     ) {}
 
     public record EquipeCooperadoResponse(
-        Integer equipeCooperadoId,
-        Integer equipeId,
+        UUID equipeCooperadoId,
+        UUID equipeId,
         String equipeNome,
-        Integer cooperadoId,
+        UUID cooperadoId,
         String cooperadoNome
     ) {}
 
     public record RateioResponse(
-        Integer rateioId,
-        Integer gestorId,
+        UUID rateioId,
+        UUID gestorId,
         String gestorNome,
-        Integer cooperativaId,
+        UUID cooperativaId,
         String cooperativaNome,
-        Integer tipoRateioId,
+        UUID tipoRateioId,
         String tipoRateioNome,
         LocalDateTime dataRateio,
         Long quantidadePessoas,
@@ -179,7 +175,7 @@ public class Responses {
     ) {}
 
     public record ResultadoRateioIndividualResponse(
-        Integer funcionarioId,
+        UUID funcionarioId,
         String funcionarioNome,
         String cargo,
         Boolean isGestor,
@@ -190,10 +186,10 @@ public class Responses {
     ) {}
 
     public record RateioRealizadoResponse(
-        Integer rateioId,
-        Integer gestorId,
+        UUID rateioId,
+        UUID gestorId,
         String gestorNome,
-        Integer cooperativaId,
+        UUID cooperativaId,
         String cooperativaNome,
         String tipoRateio,
         LocalDateTime dataRateio,
@@ -204,10 +200,10 @@ public class Responses {
     ) {}
 
     public record RateioDetalheResponse(
-        Integer rateioId,
-        Integer gestorId,
+        UUID rateioId,
+        UUID gestorId,
         String gestorNome,
-        Integer cooperativaId,
+        UUID cooperativaId,
         String cooperativaNome,
         String tipoRateio,
         LocalDateTime dataRateio,
@@ -216,7 +212,7 @@ public class Responses {
     ) {}
 
     public record RateioListaResponse(
-        Integer rateioId,
+        UUID rateioId,
         String gestorNome,
         String cooperativaNome,
         String tipoRateio,
@@ -226,11 +222,11 @@ public class Responses {
     ) {}
 
     public record RateioFuncionarioResponse(
-        Integer rateioFuncionarioId,
-        Integer rateioId,
+        UUID rateioFuncionarioId,
+        UUID rateioId,
         LocalDateTime dataRateio,
         String tipoRateio,
-        Integer funcionarioId,
+        UUID funcionarioId,
         String funcionarioNome,
         BigDecimal valorRateio,
         String cooperativaNome

@@ -8,61 +8,55 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/equipe-cooperados")
-@Tag(name = "Equipe Cooperados", description = "Vínculo de cooperados a equipes de triagem")
+@RequestMapping("/equipes-cooperados")
+@Tag(name = "Equipes Cooperados", description = "Vínculo entre equipes e cooperados")
 public class EquipeCooperadoController {
-
     private final EquipeCooperadoService service;
-
-    public EquipeCooperadoController(EquipeCooperadoService service) {
-        this.service = service;
-    }
+    public EquipeCooperadoController(EquipeCooperadoService service) { this.service = service; }
 
     @GetMapping
-    @Operation(summary = "Listar vínculos", description = "Filtrável por equipe ou por cooperado.")
-    public ResponseEntity<List<EquipeCooperadoResponse>> listar(
-            @RequestParam(required = false) Integer equipeId,
-            @RequestParam(required = false) Integer cooperadoId) {
-        if (equipeId != null) return ResponseEntity.ok(service.listarPorEquipe(equipeId));
-        if (cooperadoId != null) return ResponseEntity.ok(service.listarPorCooperado(cooperadoId));
+    public ResponseEntity<List<EquipeCooperadoResponse>> listar() {
         return ResponseEntity.ok(service.listarTodos());
     }
 
+    @GetMapping("/por-equipe/{equipeId}")
+    public ResponseEntity<List<EquipeCooperadoResponse>> listarPorEquipe(
+            @PathVariable UUID equipeId) {
+        return ResponseEntity.ok(service.listarPorEquipe(equipeId));
+    }
+
+    @GetMapping("/por-cooperado/{cooperadoId}")
+    public ResponseEntity<List<EquipeCooperadoResponse>> listarPorCooperado(
+            @PathVariable UUID cooperadoId) {
+        return ResponseEntity.ok(service.listarPorCooperado(cooperadoId));
+    }
+
     @GetMapping("/{id}")
-    @Operation(summary = "Buscar vínculo por ID")
-    public ResponseEntity<EquipeCooperadoResponse> buscarPorId(@PathVariable Integer id) {
+    public ResponseEntity<EquipeCooperadoResponse> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN_SITE','GESTOR_COOPERATIVA')")
-    @Operation(summary = "Adicionar cooperado à equipe",
-               description = "Um cooperado pode pertencer a mais de uma equipe. Retorna erro se já estiver vinculado à mesma equipe.")
-    public ResponseEntity<EquipeCooperadoResponse> adicionar(@RequestBody @Valid EquipeCooperadoRequest request) {
+    public ResponseEntity<EquipeCooperadoResponse> adicionar(
+            @RequestBody @Valid EquipeCooperadoRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.adicionar(request));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN_SITE','GESTOR_COOPERATIVA')")
-    @Operation(summary = "Remover vínculo por ID")
-    public ResponseEntity<Void> remover(@PathVariable Integer id) {
+    public ResponseEntity<Void> remover(@PathVariable UUID id) {
         service.remover(id);
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping
-    @PreAuthorize("hasAnyRole('ADMIN_SITE','GESTOR_COOPERATIVA')")
-    @Operation(summary = "Remover cooperado de uma equipe",
-               description = "Remove pelo par equipeId + cooperadoId, sem precisar do ID do vínculo.")
+    @DeleteMapping("/remover-por-equipe-cooperado")
     public ResponseEntity<Void> removerPorEquipeECooperado(
-            @RequestParam Integer equipeId,
-            @RequestParam Integer cooperadoId) {
+            @RequestParam UUID equipeId,
+            @RequestParam UUID cooperadoId) {
         service.removerPorEquipeECooperado(equipeId, cooperadoId);
         return ResponseEntity.noContent().build();
     }
