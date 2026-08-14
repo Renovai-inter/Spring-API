@@ -21,7 +21,10 @@ public class Responses {
         String nome,
         String descricao,
         Integer numeroCooperados,
-        String horarioFuncionamento
+        String horarioFuncionamento,
+        String imagemUrl,
+        String contatoPreferencial,
+        String cidade 
     ) {}
 
     public record EmpresaResponse(
@@ -29,7 +32,8 @@ public class Responses {
         String nome,
         String descricao,
         UUID materialId,
-        String materialCategoria
+        String materialCategoria,
+        String imagemUrl
     ) {}
 
     public record MaterialResponse(
@@ -37,14 +41,18 @@ public class Responses {
         UUID categoriaId,
         String categoriaNome,
         BigDecimal precoSugerido,
-        Boolean estaDisponivel
+        Boolean estaDisponivel,
+        UUID cooperativaId,
+        String imagemUrl 
     ) {}
 
     public record UsuarioResponse(
         UUID usuarioId,
         String nome,
         String cpf,
-        LocalDate dataNascimento
+        LocalDate dataNascimento,
+        String imagemUrl,
+        LocalDateTime ultimoAcesso
     ) {}
 
     public record EnderecoResponse(
@@ -54,7 +62,8 @@ public class Responses {
         String numero,
         String complemento,
         String bairro,
-        String cidade
+        String cidade,
+        String tipo
     ) {}
 
     public record PerfilResponse(
@@ -76,7 +85,10 @@ public class Responses {
         String statusAtual,
         String origem,
         BigDecimal quantidadeKg,
-        LocalDateTime dataColeta
+        LocalDateTime dataColeta,
+        String tipoColeta,
+        String imagemUrl,
+        UUID rotaId 
     ) {}
 
     public record TriagemResponse(
@@ -89,7 +101,9 @@ public class Responses {
         String statusAtual,
         BigDecimal quantidadeKg,
         BigDecimal quantidadeRejeitoKg,
-        LocalDateTime dataTriagem
+        LocalDateTime dataTriagem,
+        String imagemUrl,
+        List<String> cooperadosNomes
     ) {}
 
     public record PedidoResponse(
@@ -97,7 +111,10 @@ public class Responses {
         UUID empresaId,
         String empresaNome,
         LocalDateTime dataPedido,
-        LocalDateTime dataConclusao
+        LocalDateTime dataConclusao,
+        String statusAtual,
+        BigDecimal valorTotal,
+        String observacao  
     ) {}
 
     public record ItemResponse(
@@ -230,6 +247,191 @@ public class Responses {
         String funcionarioNome,
         BigDecimal valorRateio,
         String cooperativaNome
+    ) {}
+
+    public record DistribuicaoEstrelas(
+        long estrelas0,
+        long estrelas1,
+        long estrelas2,
+        long estrelas3,
+        long estrelas4,
+        long estrelas5
+    ) {}
+
+    public record RotaResponse(
+        UUID rotaId,
+        UUID cooperativaId,
+        String cooperativaNome,
+        String nome,
+        Boolean estaAtiva,
+        List<RotaEnderecoResponse> enderecos
+    ) {}
+    
+    public record RotaEnderecoResponse(
+        UUID rotaEnderecoId,
+        UUID rotaId,
+        UUID enderecoId,
+        String nomeLocal,
+        String tipoLocal,
+        Integer ordem,
+        String logradouro,
+        String numero,
+        String bairro,
+        String cidade
+    ) {}
+
+    public record NegociacaoResponse(
+        UUID negociacaoId,
+        UUID pedidoId,
+        UUID cooperativaId,
+        String cooperativaNome,
+        UUID empresaId,
+        String empresaNome,
+        String statusAtual,
+        BigDecimal valorTotal,
+        LocalDateTime dataInicio,
+        LocalDateTime dataFechamento,
+        List<NegociacaoItemResponse> itens
+    ) {}
+    
+    public record NegociacaoItemResponse(
+        UUID negociacaoItemId,
+        UUID negociacaoId,
+        UUID materialId,
+        String materialCategoria,
+        BigDecimal quantidadeKg,
+        BigDecimal precoUnitario
+    ) {}
+    
+    public record NegociacaoMensagemResponse(
+        UUID mensagemId,
+        UUID negociacaoId,
+        UUID remetenteId,
+        String remetenteNome,
+        String mensagem,
+        String tipoMensagem,
+        LocalDateTime dataEnvio
+    ) {}
+    public record EmpresaMaterialInteresseResponse(
+        UUID empresaMaterialId,
+        UUID empresaId,
+        UUID categoriaId,
+        String categoriaNome
+    ) {}
+
+    public record FavoritoResponse(
+        UUID favoritoId,
+        UUID empresaId,
+        UUID cooperativaId,
+        String cooperativaNome,
+        String cooperativaImagem,
+        LocalDateTime dataCriacao
+    ) {}
+
+    public record EmpresaDashboardResponse(
+        Long totalPedidosEnviados,
+        Long totalPedidosAceitos,
+        BigDecimal valorTotalNegociado,
+        Long totalCooperativasFavoritadas
+    ) {}
+
+    public record CooperativaPerfilPublicoResponse(
+        UUID cooperativaId,
+        String nome,
+        String descricao,
+        String imagemUrl,
+        String contatoPreferencial,
+        String horarioFuncionamento,
+        String cidade,
+        Double mediaAvaliacoes,
+        Long totalAvaliacoes,
+        List<EstoqueResponse> materiaisDisponiveis
+    ) {}
+
+    public record DespesaResponse(
+        UUID despesaId,
+        UUID cooperativaId,
+        String cooperativaNome,
+        String nome,
+        String tipoDespesa,
+        Boolean estaAtiva
+    ) {}
+    
+    public record LancamentoDespesaResponse(
+        UUID lancamentoId,
+        UUID despesaId,
+        String despesaNome,
+        String tipoDespesa,
+        BigDecimal valor,
+        LocalDate mesReferencia,
+        LocalDateTime dataLancamento
+    ) {}
+    
+    public record TotalDespesasMesResponse(
+        LocalDate mesReferencia,
+        BigDecimal totalFixas,
+        BigDecimal totalVariaveis,
+        BigDecimal totalGeral
+    ) {}
+
+    public record CategoriaMaterialResponse(
+        UUID categoriaId,
+        UUID categoriaPaiId,
+        String categoriaPaiNome,
+        String nomeCategoria
+    ) {}
+    
+    public record CategoriaMaterialArvoreResponse(
+        UUID categoriaId,
+        String nomeCategoria,
+        List<CategoriaMaterialArvoreResponse> subcategorias
+    ) {}
+
+    public record MovimentacaoEstoqueResponse(
+        UUID movimentacaoId,
+        UUID estoqueId,
+        UUID cooperativaId,
+        String cooperativaNome,
+        UUID materialId,
+        String materialCategoria,
+        UUID triagemId,
+        UUID itemId,
+        BigDecimal quantidadeKg,
+        String tipoMovimentacao,
+        LocalDateTime dataMovimentacao
+    ) {}
+
+    public record MediaAvaliacoesResponse(
+        BigDecimal mediaAvaliacoes
+    ) {}
+
+    public record NumeroCooperadosResponse(
+        Integer numeroCooperados
+    ) {}
+
+    public record QuantidadeRejeitoResponse(
+        BigDecimal quantidadeRejeitoKg
+    ) {}
+
+    public record RateioAutomaticoResponse(
+        BigDecimal valorIndividual
+    ) {}
+
+    public record TotalAcumuladoResponse(
+        BigDecimal totalAcumulado
+    ) {}
+
+    public record TotalLiquidoResponse(
+        BigDecimal totalLiquido
+    ) {}
+
+    public record TotalKgCategoriaResponse(
+        BigDecimal totalKg
+    ) {}
+
+    public record ProcedureResponse(
+        boolean sucesso,
+        String mensagem
     ) {}
 
 }

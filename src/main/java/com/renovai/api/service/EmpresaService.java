@@ -1,15 +1,18 @@
 package com.renovai.api.service;
 
 import com.renovai.api.dto.request.Requests.EmpresaRequest;
+import com.renovai.api.dto.response.Responses.EmpresaDashboardResponse;
 import com.renovai.api.dto.response.Responses.EmpresaResponse;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
 import com.renovai.api.model.Empresa;
-import com.renovai.api.model.Material;
+import com.renovai.api.repository.EmpresaCooperativaFavoritaRepository;
 import com.renovai.api.repository.EmpresaRepository;
-import com.renovai.api.repository.MaterialRepository;
+import com.renovai.api.repository.NegociacaoRepository;
+import com.renovai.api.repository.PedidoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,11 +21,18 @@ import java.util.UUID;
 public class EmpresaService {
 
     private final EmpresaRepository repository;
-    private final MaterialRepository materialRepository;
+    private final NegociacaoRepository negociacaoRepository;
+    private final EmpresaCooperativaFavoritaRepository favoritaRepository;
+    private final PedidoRepository pedidoRepository;
 
-    public EmpresaService(EmpresaRepository repository, MaterialRepository materialRepository) {
+    public EmpresaService(EmpresaRepository repository,
+                          NegociacaoRepository negociacaoRepository,
+                          EmpresaCooperativaFavoritaRepository favoritaRepository,
+                          PedidoRepository pedidoRepository) {
         this.repository = repository;
-        this.materialRepository = materialRepository;
+        this.negociacaoRepository = negociacaoRepository;
+        this.favoritaRepository = favoritaRepository;
+        this.pedidoRepository = pedidoRepository;
     }
 
     @Transactional(readOnly = true)
@@ -40,16 +50,26 @@ public class EmpresaService {
         return repository.findByNomeContainingIgnoreCase(nome).stream().map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public EmpresaDashboardResponse buscarDashboard(UUID empresaId) {
+        findOrThrow(empresaId);
+        long totalEnviados = pedidoRepository.findByEmpresa_EmpresaId(empresaId).size();
+        Long totalAceitos = negociacaoRepository.countAceitosByEmpresa(empresaId);
+        BigDecimal valorTotal = negociacaoRepository.sumValorNegociadoByEmpresa(empresaId);
+        long totalFavoritas = favoritaRepository.countByEmpresa_EmpresaId(empresaId);
+
+        return new EmpresaDashboardResponse(
+                totalEnviados,
+                totalAceitos != null ? totalAceitos : 0L,
+                valorTotal != null ? valorTotal : BigDecimal.ZERO,
+                totalFavoritas
+        );
+    }
+
     public EmpresaResponse criar(EmpresaRequest request) {
-        Material material = null;
-        if (request.materialId() != null) {
-            material = materialRepository.findById(request.materialId())
-                    .orElseThrow(() -> new RecursoNaoEncontradoException("Material", request.materialId()));
-        }
         Empresa empresa = Empresa.builder()
                 .nome(request.nome())
                 .descricao(request.descricao())
-                .material(material)
                 .build();
         return toResponse(repository.save(empresa));
     }
@@ -58,11 +78,6 @@ public class EmpresaService {
         Empresa empresa = findOrThrow(id);
         empresa.setNome(request.nome());
         empresa.setDescricao(request.descricao());
-        if (request.materialId() != null) {
-            Material material = materialRepository.findById(request.materialId())
-                    .orElseThrow(() -> new RecursoNaoEncontradoException("Material", request.materialId()));
-            empresa.setMaterial(material);
-        }
         return toResponse(repository.save(empresa));
     }
 
@@ -71,13 +86,13 @@ public class EmpresaService {
         repository.deleteById(id);
     }
 
+    public Empresa findEntityById(UUID id) {
+        return findOrThrow(id);
+    }
+
     private Empresa findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Empresa", id));
-    }
-
-    public Empresa findEntityById(UUID id) {
-        return findOrThrow(id);
     }
 
     private EmpresaResponse toResponse(Empresa e) {
@@ -85,10 +100,9 @@ public class EmpresaService {
                 e.getEmpresaId(),
                 e.getNome(),
                 e.getDescricao(),
-                e.getMaterial() != null ? e.getMaterial().getMaterialId() : null,
-                // Expõe o nome da categoria em vez de passar o objeto CategoriaMaterial
-                e.getMaterial() != null && e.getMaterial().getCategoria() != null
-                        ? e.getMaterial().getCategoria().getNomeCategoria() : null
+                null,
+                null,
+                null
         );
     }
 }

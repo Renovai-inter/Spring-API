@@ -1,5 +1,5 @@
 package com.renovai.api.service;
-
+ 
 import com.renovai.api.dto.request.Requests.*;
 import com.renovai.api.dto.response.Responses.*;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
@@ -9,32 +9,32 @@ import com.renovai.api.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+ 
 import java.util.List;
 import java.util.UUID;
-
+ 
 @Service
 @Transactional
 public class UsuarioService {
-
+ 
     private final UsuarioRepository repository;
     private final PasswordEncoder passwordEncoder;
-
+ 
     public UsuarioService(UsuarioRepository repository, PasswordEncoder passwordEncoder) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
     }
-
+ 
     @Transactional(readOnly = true)
     public List<UsuarioResponse> listarTodos() {
         return repository.findAll().stream().map(this::toResponse).toList();
     }
-
+ 
     @Transactional(readOnly = true)
     public UsuarioResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
-
+ 
     public UsuarioResponse criar(UsuarioRequest request) {
         if (request.cpf() != null && repository.existsByCpf(request.cpf())) {
             throw new RegraDeNegocioException("CPF já cadastrado no sistema.");
@@ -48,10 +48,11 @@ public class UsuarioService {
                 .email(request.email() != null ? request.email() : "")
                 .senhaHash(passwordEncoder.encode(request.senha()))
                 .dataNascimento(request.dataNascimento())
+                .imagemUrl(request.imagemUrl()) // CORRIGIDO: repassado do request
                 .build();
         return toResponse(repository.save(usuario));
     }
-
+ 
     public UsuarioResponse completarCadastro(CompletarCadastroRequest request) {
         Usuario usuario = repository.findByCpf(request.cpf())
                 .orElseThrow(() -> new RegraDeNegocioException("CPF não encontrado."));
@@ -63,7 +64,7 @@ public class UsuarioService {
         repository.save(usuario);
         return toResponse(usuario);
     }
-
+ 
     @Transactional(readOnly = true)
     public PrimeiroAcessoResponse validarPrimeiroAcesso(ValidarPrimeiroAcessoRequest request) {
         Usuario usuario = repository.findByCpf(request.cpf())
@@ -76,7 +77,7 @@ public class UsuarioService {
         }
         return new PrimeiroAcessoResponse(false, "Usuário já cadastrado. Faça login.");
     }
-
+ 
     public UsuarioResponse atualizar(UUID id, UsuarioRequest request) {
         Usuario usuario = findOrThrow(id);
         usuario.setNome(request.nome());
@@ -84,27 +85,37 @@ public class UsuarioService {
         if (request.senha() != null && !request.senha().isBlank()) {
             usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
         }
+        if (request.imagemUrl() != null) {
+            usuario.setImagemUrl(request.imagemUrl());
+        }
         return toResponse(repository.save(usuario));
     }
-
+ 
     public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
-
+ 
     private Usuario findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário", id));
     }
-
+ 
     public Usuario findEntityById(UUID id) {
         return findOrThrow(id);
     }
-
+ 
     private UsuarioResponse toResponse(Usuario u) {
-        return new UsuarioResponse(u.getUsuarioId(), u.getNome(), u.getCpf(), u.getDataNascimento());
+        return new UsuarioResponse(
+                u.getUsuarioId(),
+                u.getNome(),
+                u.getCpf(),
+                u.getDataNascimento(),
+                u.getImagemUrl(),
+                u.getUltimoAcesso()
+        );
     }
-
+ 
     public void alterarSenha(UUID id, AlterarSenhaRequest request) {
         Usuario usuario = findOrThrow(id);
         if (!passwordEncoder.matches(request.senhaAtual(), usuario.getSenhaHash())) {

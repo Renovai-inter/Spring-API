@@ -17,7 +17,7 @@ import java.util.UUID;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "itens")
+@Table(name = "pedido_itens")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -41,4 +41,5 @@ public class Item {
 
     @Column(name = "preco_unitario", precision = 10, scale = 2)
     private BigDecimal precoUnitario;
+
 }

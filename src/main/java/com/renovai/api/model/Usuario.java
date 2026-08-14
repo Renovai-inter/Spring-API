@@ -12,6 +12,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.UUID;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "usuarios")
@@ -39,4 +40,24 @@ public class Usuario {
 
     @Column(name = "data_nascimento")
     private LocalDate dataNascimento;
+
+    @Column(name = "imagem_url", columnDefinition = "TEXT")
+    private String imagemUrl;
+
+    @Column(name = "ultimo_acesso")
+    private LocalDateTime ultimoAcesso;
+
+    @Column(name = "data_criacao")
+    private LocalDateTime dataCriacao = LocalDateTime.now();
+
+    @Column(name = "data_atualizacao")
+    private LocalDateTime dataAtualizacao = LocalDateTime.now();
+
+    @Column(name = "esta_ativo")
+    private Boolean estaAtivo = true;
+    @Column(name = "token_redefinicao", length = 64)
+    private String tokenRedefinicao;
+
+    @Column(name = "token_expiracao")
+    private LocalDateTime tokenExpiracao;
 }

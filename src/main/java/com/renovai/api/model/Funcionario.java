@@ -43,6 +43,15 @@ public class Funcionario {
     @Column(name = "data_admissao", nullable = false)
     private LocalDateTime dataAdmissao = LocalDateTime.now();
 
-    @Column(name = "esta_ativo", nullable = false)
-    private Boolean estaAtivo = true;
+    @Column(name = "status_funcionario", nullable = false, length = 20)
+    private String statusFuncionario = "ATIVO";
+
+    @Column(name = "data_desligamento")
+    private LocalDateTime dataDesligamento;
+
+    @Column(name = "esta_ativo", insertable = false, updatable = false)
+    private Boolean estaAtivo;
+
+    @Column(name = "esta_afastado", insertable = false, updatable = false)
+    private Boolean estaAfastado;
 }

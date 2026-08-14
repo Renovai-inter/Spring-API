@@ -16,4 +16,21 @@ public interface AvaliacaoRepository extends JpaRepository<Avaliacao, UUID> {
     Double calcularMediaNotasByPerfil(@Param("perfilId") UUID perfilId);
 
     List<Avaliacao> findByPedido_PedidoId(UUID pedidoId);
+
+    @Query("""
+    SELECT a.nota, COUNT(a)
+    FROM Avaliacao a
+    WHERE a.avaliado.cooperativa.cooperativaId = :cooperativaId
+      AND a.nota IS NOT NULL
+    GROUP BY a.nota
+    """)
+    List<Object[]> contarAvaliacoesPorNotaECooperativa(@Param("cooperativaId") UUID cooperativaId);
+
+    @Query("""
+        SELECT COUNT(a)
+        FROM Avaliacao a
+        WHERE a.avaliado.cooperativa.cooperativaId = :cooperativaId
+        AND a.nota IS NULL
+    """)
+    long contarAvaliacoesSemNota(@Param("cooperativaId") UUID cooperativaId);
 }

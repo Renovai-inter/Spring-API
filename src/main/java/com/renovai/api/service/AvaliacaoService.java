@@ -1,6 +1,7 @@
 package com.renovai.api.service;
 
 import com.renovai.api.dto.request.Requests.AvaliacaoRequest;
+import com.renovai.api.dto.response.Responses;
 import com.renovai.api.dto.response.Responses.AvaliacaoResponse;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
 import com.renovai.api.exception.RegraDeNegocioException;
@@ -96,6 +97,28 @@ public class AvaliacaoService {
                 a.getNota(),
                 a.getComentario(),
                 a.getDataAvaliacao()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public Responses.DistribuicaoEstrelas distribuicaoEstrelasPorCooperativa(UUID cooperativaId) {
+        long[] contagem = new long[6];
+        contagem[0] = repository.contarAvaliacoesSemNota(cooperativaId);
+        List<Object[]> rows = repository.contarAvaliacoesPorNotaECooperativa(cooperativaId);
+        for (Object[] row : rows) {
+            int nota = ((Number) row[0]).intValue();
+            long total = ((Number) row[1]).longValue();
+            if (nota >= 0 && nota <= 5) {
+                contagem[nota] += total;
+            }
+        }
+        return new Responses.DistribuicaoEstrelas(
+            contagem[0],
+            contagem[1],
+            contagem[2],
+            contagem[3],
+            contagem[4],
+            contagem[5]
         );
     }
 }
