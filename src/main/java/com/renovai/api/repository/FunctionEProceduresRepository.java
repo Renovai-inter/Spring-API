@@ -1,88 +1,113 @@
 package com.renovai.api.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.query.Procedure;
-import org.springframework.data.repository.query.Param;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 import org.springframework.stereotype.Repository;
-
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Repository
-public interface FunctionEProceduresRepository extends JpaRepository<Object, UUID> {
-    @Query(value = "SELECT fn_calcular_media_avaliacoes(:perfilId)", nativeQuery = true)
-    BigDecimal calcularMediaAvaliacoes(
-            @Param("perfilId") UUID perfilId);
+public class FunctionEProceduresRepository {
 
-    @Query(value = "SELECT fn_calcular_numero_cooperados(:cooperativaId)", nativeQuery = true)
-    Integer calcularNumeroCooperados(
-            @Param("cooperativaId") UUID cooperativaId);
+    @PersistenceContext
+    private EntityManager em;
 
-    @Query(value = "SELECT fn_calcular_quantidade_rejeito_kg(:triagemQuantidadeKg, :coletaId)", nativeQuery = true)
-    BigDecimal calcularQuantidadeRejeitoKg(
-            @Param("triagemQuantidadeKg") BigDecimal triagemQuantidadeKg,
-            @Param("coletaId") UUID coletaId);
+    // ========== FUNCTIONS ==========
 
-    @Query(value = "SELECT fn_calcular_rateio_automatico(:cooperativaId, :mesReferencia)", nativeQuery = true)
-    BigDecimal calcularRateioAutomatico(
-            @Param("cooperativaId") UUID cooperativaId,
-            @Param("mesReferencia") LocalDateTime mesReferencia);
+    public BigDecimal calcularMediaAvaliacoes(UUID perfilId) {
+        Query q = em.createNativeQuery("SELECT fn_calcular_media_avaliacoes(:perfilId)");
+        q.setParameter("perfilId", perfilId);
+        return (BigDecimal) q.getSingleResult();
+    }
 
-    @Query(value = "SELECT fn_calcular_total_acumulado(:cooperativaId, :dataInicio, :dataFim)", nativeQuery = true)
-    BigDecimal calcularTotalAcumulado(
-            @Param("cooperativaId") UUID cooperativaId,
-            @Param("dataInicio") LocalDateTime dataInicio,
-            @Param("dataFim") LocalDateTime dataFim);
+    public Integer calcularNumeroCooperados(UUID cooperativaId) {
+        Query q = em.createNativeQuery("SELECT fn_calcular_numero_cooperados(:cooperativaId)");
+        q.setParameter("cooperativaId", cooperativaId);
+        return ((Number) q.getSingleResult()).intValue();
+    }
 
-    @Query(value = "SELECT fn_calcular_total_liquido(:cooperativaId, :dataInicio, :dataFim)", nativeQuery = true)
-    BigDecimal calcularTotalLiquido(
-            @Param("cooperativaId") UUID cooperativaId,
-            @Param("dataInicio") LocalDateTime dataInicio,
-            @Param("dataFim") LocalDateTime dataFim);
+    public BigDecimal calcularQuantidadeRejeitoKg(BigDecimal triagemQuantidadeKg, UUID coletaId) {
+        Query q = em.createNativeQuery("SELECT fn_calcular_quantidade_rejeito_kg(:triagemQuantidadeKg, :coletaId)");
+        q.setParameter("triagemQuantidadeKg", triagemQuantidadeKg);
+        q.setParameter("coletaId", coletaId);
+        return (BigDecimal) q.getSingleResult();
+    }
 
-    @Query(value = """
-            SELECT fn_total_kg_por_categoria(
-                :categoriaId,
-                :dataInicio,
-                :dataFim
-            )
-            """, nativeQuery = true)
-    BigDecimal calcularTotalKgPorCategoria(
-            @Param("categoriaId") UUID categoriaId,
-            @Param("dataInicio") LocalDateTime dataInicio,
-            @Param("dataFim") LocalDateTime dataFim);
+    public BigDecimal calcularRateioAutomatico(UUID cooperativaId, LocalDateTime mesReferencia) {
+        Query q = em.createNativeQuery("SELECT fn_calcular_rateio_automatico(:cooperativaId, :mesReferencia)");
+        q.setParameter("cooperativaId", cooperativaId);
+        q.setParameter("mesReferencia", mesReferencia);
+        return (BigDecimal) q.getSingleResult();
+    }
 
-    @Procedure(procedureName = "sp_aceitar_pedido_cooperativa")
-    void aceitarPedidoCooperativa(
-            @Param("p_pedido_cooperativa_id") UUID pedidoCooperativaId,
-            @Param("p_status_aceito_id") UUID statusAceitoId);
+    public BigDecimal calcularTotalAcumulado(UUID cooperativaId, LocalDateTime dataInicio, LocalDateTime dataFim) {
+        Query q = em.createNativeQuery("SELECT fn_calcular_total_acumulado(:cooperativaId, :dataInicio, :dataFim)");
+        q.setParameter("cooperativaId", cooperativaId);
+        q.setParameter("dataInicio", dataInicio);
+        q.setParameter("dataFim", dataFim);
+        return (BigDecimal) q.getSingleResult();
+    }
 
+    public BigDecimal calcularTotalLiquido(UUID cooperativaId, LocalDateTime dataInicio, LocalDateTime dataFim) {
+        Query q = em.createNativeQuery("SELECT fn_calcular_total_liquido(:cooperativaId, :dataInicio, :dataFim)");
+        q.setParameter("cooperativaId", cooperativaId);
+        q.setParameter("dataInicio", dataInicio);
+        q.setParameter("dataFim", dataFim);
+        return (BigDecimal) q.getSingleResult();
+    }
 
-    @Procedure(procedureName = "sp_fechar_negociacao")
-    void fecharNegociacao(
-            @Param("p_negociacao_id") UUID negociacaoId,
-            @Param("p_aceito") Boolean aceito);
+    public BigDecimal calcularTotalKgPorCategoria(UUID categoriaId, LocalDateTime dataInicio, LocalDateTime dataFim) {
+        Query q = em.createNativeQuery("SELECT fn_total_kg_por_categoria(:categoriaId, :dataInicio, :dataFim)");
+        q.setParameter("categoriaId", categoriaId);
+        q.setParameter("dataInicio", dataInicio);
+        q.setParameter("dataFim", dataFim);
+        return (BigDecimal) q.getSingleResult();
+    }
 
+    // ========== PROCEDURES ==========
 
-    @Procedure(procedureName = "sp_fechar_rateio_mensal")
-    void fecharRateioMensal(
-            @Param("p_cooperativa_id") UUID cooperativaId,
-            @Param("p_gestor_id") UUID gestorId,
-            @Param("p_mes_referencia") LocalDateTime mesReferencia);
+    @Transactional
+    public void aceitarPedidoCooperativa(UUID pedidoCooperativaId, UUID statusAceitoId) {
+        Query q = em.createNativeQuery("CALL sp_aceitar_pedido_cooperativa(:p_pedido_cooperativa_id, :p_status_aceito_id)");
+        q.setParameter("p_pedido_cooperativa_id", pedidoCooperativaId);
+        q.setParameter("p_status_aceito_id", statusAceitoId);
+        q.executeUpdate();
+    }
 
+    @Transactional
+    public void fecharNegociacao(UUID negociacaoId, Boolean aceito) {
+        Query q = em.createNativeQuery("CALL sp_fechar_negociacao(:p_negociacao_id, :p_aceito)");
+        q.setParameter("p_negociacao_id", negociacaoId);
+        q.setParameter("p_aceito", aceito);
+        q.executeUpdate();
+    }
 
+    @Transactional
+    public void fecharRateioMensal(UUID cooperativaId, UUID gestorId, LocalDateTime mesReferencia) {
+        Query q = em.createNativeQuery("CALL sp_fechar_rateio_mensal(:p_cooperativa_id, :p_gestor_id, :p_mes_referencia)");
+        q.setParameter("p_cooperativa_id", cooperativaId);
+        q.setParameter("p_gestor_id", gestorId);
+        q.setParameter("p_mes_referencia", mesReferencia);
+        q.executeUpdate();
+    }
 
-    @Procedure(procedureName = "sp_registrar_movimentacao_triagem")
-    void registrarMovimentacaoTriagem(
-            @Param("p_equipe_id") UUID equipeId,
-            @Param("p_coleta_id") UUID coletaId,
-            @Param("p_material_id") UUID materialId,
-            @Param("p_status_id") UUID statusId,
-            @Param("p_quantidade_kg") BigDecimal quantidadeKg,
-            @Param("p_quantidade_rejeito_kg") BigDecimal quantidadeRejeitoKg,
-            @Param("p_data_triagem") LocalDateTime dataTriagem);
-
+    @Transactional
+    public void registrarMovimentacaoTriagem(
+            UUID equipeId, UUID coletaId, UUID materialId, UUID statusId,
+            BigDecimal quantidadeKg, BigDecimal quantidadeRejeitoKg, LocalDateTime dataTriagem) {
+        Query q = em.createNativeQuery(
+            "CALL sp_registrar_movimentacao_triagem(:p_equipe_id, :p_coleta_id, :p_material_id, :p_status_id, :p_quantidade_kg, :p_quantidade_rejeito_kg, :p_data_triagem)");
+        q.setParameter("p_equipe_id", equipeId);
+        q.setParameter("p_coleta_id", coletaId);
+        q.setParameter("p_material_id", materialId);
+        q.setParameter("p_status_id", statusId);
+        q.setParameter("p_quantidade_kg", quantidadeKg);
+        q.setParameter("p_quantidade_rejeito_kg", quantidadeRejeitoKg);
+        q.setParameter("p_data_triagem", dataTriagem);
+        q.executeUpdate();
+    }
 }
