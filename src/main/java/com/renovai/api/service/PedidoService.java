@@ -1,5 +1,5 @@
 package com.renovai.api.service;
-
+ 
 import com.renovai.api.dto.request.Requests.*;
 import com.renovai.api.dto.response.Responses.*;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
@@ -7,14 +7,15 @@ import com.renovai.api.model.*;
 import com.renovai.api.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+ 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
-
+ 
 @Service
 @Transactional
 public class PedidoService {
-
+ 
     private final PedidoRepository pedidoRepository;
     private final EmpresaRepository empresaRepository;
     private final ItemRepository itemRepository;
@@ -22,7 +23,7 @@ public class PedidoService {
     private final PedidoCooperativaRepository pedidoCooperativaRepository;
     private final CooperativaRepository cooperativaRepository;
     private final StatusRepository statusRepository;
-
+ 
     public PedidoService(PedidoRepository pedidoRepository,
                          EmpresaRepository empresaRepository,
                          ItemRepository itemRepository,
@@ -38,50 +39,54 @@ public class PedidoService {
         this.cooperativaRepository = cooperativaRepository;
         this.statusRepository = statusRepository;
     }
-
+ 
     // ── Pedidos ──────────────────────────────────────────────
-
+ 
     @Transactional(readOnly = true)
     public List<PedidoResponse> listarTodos() {
         return pedidoRepository.findAll().stream().map(this::toPedidoResponse).toList();
     }
-
+ 
     @Transactional(readOnly = true)
     public PedidoResponse buscarPorId(UUID id) {
         return toPedidoResponse(findPedidoOrThrow(id));
     }
-
+ 
     @Transactional(readOnly = true)
     public List<PedidoResponse> listarPorEmpresa(UUID empresaId) {
         return pedidoRepository.findByEmpresa_EmpresaId(empresaId)
                 .stream().map(this::toPedidoResponse).toList();
     }
-
+ 
     public PedidoResponse criarPedido(PedidoRequest request) {
         Empresa empresa = empresaRepository.findById(request.empresaId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Empresa", request.empresaId()));
-        Pedido pedido = Pedido.builder().empresa(empresa).build();
+        // CORRIGIDO: observacao repassada ao builder
+        Pedido pedido = Pedido.builder()
+                .empresa(empresa)
+                .observacao(request.observacao())
+                .build();
         return toPedidoResponse(pedidoRepository.save(pedido));
     }
-
+ 
     public void deletarPedido(UUID id) {
         findPedidoOrThrow(id);
         pedidoRepository.deleteById(id);
     }
-
+ 
     // ── Itens ────────────────────────────────────────────────
-
+ 
     @Transactional(readOnly = true)
     public List<ItemResponse> listarItensPorPedido(UUID pedidoId) {
         return itemRepository.findByPedido_PedidoId(pedidoId)
                 .stream().map(this::toItemResponse).toList();
     }
-
+ 
     public ItemResponse adicionarItem(ItemRequest request) {
         Pedido pedido = findPedidoOrThrow(request.pedidoId());
         Material material = materialRepository.findById(request.materialId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Material", request.materialId()));
-
+ 
         Item item = Item.builder()
                 .pedido(pedido).material(material)
                 .quantidadeKg(request.quantidadeKg())
@@ -89,33 +94,33 @@ public class PedidoService {
                 .build();
         return toItemResponse(itemRepository.save(item));
     }
-
+ 
     public void removerItem(UUID itemId) {
         itemRepository.findById(itemId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Item", itemId));
         itemRepository.deleteById(itemId);
     }
-
+ 
     // ── Pedido × Cooperativa ─────────────────────────────────
-
+ 
     @Transactional(readOnly = true)
     public List<PedidoCooperativaResponse> listarPorCooperativa(UUID cooperativaId) {
         return pedidoCooperativaRepository.findByCooperativa_CooperativaId(cooperativaId)
                 .stream().map(this::toPedidoCoopResponse).toList();
     }
-
+ 
     public PedidoCooperativaResponse vincularCooperativa(PedidoCooperativaRequest request) {
         Pedido pedido = findPedidoOrThrow(request.pedidoId());
         Cooperativa cooperativa = cooperativaRepository.findById(request.cooperativaId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", request.cooperativaId()));
         Status status = statusRepository.findById(request.statusId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
-
+ 
         PedidoCooperativa pc = PedidoCooperativa.builder()
                 .pedido(pedido).cooperativa(cooperativa).status(status).build();
         return toPedidoCoopResponse(pedidoCooperativaRepository.save(pc));
     }
-
+ 
     public PedidoCooperativaResponse atualizarStatusPedidoCooperativa(UUID id, UUID novoStatusId) {
         PedidoCooperativa pc = pedidoCooperativaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("PedidoCooperativa", id));
@@ -124,37 +129,50 @@ public class PedidoService {
         pc.setStatus(status);
         return toPedidoCoopResponse(pedidoCooperativaRepository.save(pc));
     }
-
+ 
     // ── Helpers ──────────────────────────────────────────────
-
+ 
     private Pedido findPedidoOrThrow(UUID id) {
         return pedidoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido", id));
     }
-
+ 
     private PedidoResponse toPedidoResponse(Pedido p) {
+        // CORRIGIDO: PedidoResponse tem 8 campos; buscamos status e valorTotal
+        List<PedidoCooperativa> vinculos = pedidoCooperativaRepository.findByPedido_PedidoId(p.getPedidoId());
+        String statusAtual = vinculos.isEmpty() ? null
+                : vinculos.get(0).getStatus().getStatusAtual();
+ 
+        List<Item> itens = itemRepository.findByPedido_PedidoId(p.getPedidoId());
+        BigDecimal valorTotal = itens.stream()
+                .filter(i -> i.getQuantidadeKg() != null && i.getPrecoUnitario() != null)
+                .map(i -> i.getQuantidadeKg().multiply(i.getPrecoUnitario()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+ 
         return new PedidoResponse(
                 p.getPedidoId(),
                 p.getEmpresa().getEmpresaId(),
                 p.getEmpresa().getNome(),
                 p.getDataPedido(),
-                p.getDataConclusao()   // era p.getDataFinal() — campo correto é dataConclusao
+                p.getDataConclusao(),
+                statusAtual,
+                valorTotal,
+                p.getObservacao()
         );
     }
-
+ 
     private ItemResponse toItemResponse(Item i) {
         return new ItemResponse(
                 i.getItemId(),
                 i.getPedido().getPedidoId(),
                 i.getMaterial().getMaterialId(),
-                // era i.getMaterial().getCategoria() que retorna objeto — agora pega o nome
                 i.getMaterial().getCategoria() != null
                         ? i.getMaterial().getCategoria().getNomeCategoria() : null,
                 i.getQuantidadeKg(),
                 i.getPrecoUnitario()
         );
     }
-
+ 
     private PedidoCooperativaResponse toPedidoCoopResponse(PedidoCooperativa pc) {
         return new PedidoCooperativaResponse(
                 pc.getPedidoCooperativaId(),

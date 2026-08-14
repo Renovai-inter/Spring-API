@@ -41,4 +41,7 @@ public class Endereco {
 
     @Column(length = 100)
     private String cidade;
+
+    @Column(length = 20)
+    private String tipo;
 }

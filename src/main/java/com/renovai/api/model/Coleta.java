@@ -31,4 +31,14 @@ public class Coleta extends EventoOperacional {
 
     @Column(name = "quantidade_kg", nullable = false, precision = 10, scale = 3)
     private BigDecimal quantidadeKg;
+    
+    @Column(name = "tipo_coleta", length = 30)
+    private String tipoColeta;
+    
+    @Column(name = "imagem_url", columnDefinition = "TEXT")
+    private String imagemUrl;
+    @ManyToOne
+    @JoinColumn(name = "rota_id", foreignKey = @ForeignKey(name = "fk_coletas_rotas"))
+    private Rota rota;
+
 }

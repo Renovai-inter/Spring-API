@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,7 +15,10 @@ import java.util.UUID;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "status")
+@Table(name = "status", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_status_referencia_atual",
+                      columnNames = {"referencia", "status_atual"})
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,8 +29,11 @@ public class Status {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID statusId;
 
-    @Column(name = "status_atual", nullable = false, unique = true, length = 50)
+    @Column(name = "status_atual", nullable = false, length = 50)  // tirar unique = true
     private String statusAtual;
+
+    @Column(length = 50)
+    private String referencia;
 
     @Column(name = "data_atualizacao", nullable = false)
     private LocalDateTime dataAtualizacao = LocalDateTime.now();

@@ -28,6 +28,7 @@ public class RateioService {
     private final CooperativaRepository cooperativaRepository;
     private final TipoRateioRepository tipoRateioRepository;
     private final ColetaRepository coletaRepository;
+    private final TriagemRepository triagemRepository;
     private final ItemRepository itemRepository;
 
 
@@ -57,10 +58,7 @@ public class RateioService {
                         TipoRateio.builder().tipoRateio("GERAL")
                                 .descricao("Divisão igualitária entre todos os cooperados ativos").build()));
 
-        // mesReferencia obrigatório: primeiro dia do mês de início
         LocalDate mesReferencia = req.getDataInicio().toLocalDate().withDayOfMonth(1);
-
-
         Rateio rateio = rateioRepository.save(Rateio.builder()
                 .gestor(gestor)
                 .cooperativa(cooperativa)
@@ -79,7 +77,6 @@ public class RateioService {
                     c.getCargo().getCargo().contains("GESTOR"),
                     valorPorPessoa, 0, 0, calcularPercentual(valorPorPessoa, totalVendas));
         }).toList();
-
         return new RateioRealizadoResponse(
                 rateio.getRateioId(), gestor.getFuncionarioId(), gestor.getUsuario().getNome(),
                 gestor.getCooperativa().getCooperativaId(), gestor.getCooperativa().getNome(),
@@ -112,13 +109,18 @@ public class RateioService {
 
         List<Pontuacao> pontuacoes = cooperados.stream().map(c -> {
             long coletas = coletaRepository.countColetasPorPeriodo(c.getFuncionarioId(), req.getDataInicio(), req.getDataFim());
-            return new Pontuacao(c, coletas, 0L, coletas);
+            long triagens = triagemRepository.countTriagensPorPeriodo(c.getFuncionarioId(), req.getDataInicio(), req.getDataFim());
+            long totalPontos = coletas + triagens;
+            return new Pontuacao(c, coletas, triagens, totalPontos);
         }).toList();
 
         long totalPontos = pontuacoes.stream().mapToLong(Pontuacao::total).sum();
+        
         if (totalPontos == 0) {
-            pontuacoes = pontuacoes.stream().map(p -> new Pontuacao(p.funcionario(), 0L, 0L, 1L)).toList();
-            totalPontos = cooperados.size();
+            throw new RegraDeNegocioException(
+                "Nenhuma atividade de coleta ou triagem registrada no período para cálculo de rateio proporcional. " +
+                "Registre coletas/triagens ou utilize rateio geral."
+            );
         }
 
         TipoRateio tipoRateio = tipoRateioRepository.findByTipoRateio("PROPORCIONAL")
@@ -194,7 +196,6 @@ public class RateioService {
     public List<RateioListaResponse> listarPorCooperativa(UUID cooperativaId) {
         return rateioRepository.findByCooperativa(cooperativaId).stream().map(this::toListaResponse).toList();
     }
-
     public List<RateioFuncionarioResponse> listarDistribuicaoPorRateio(UUID rateioId) {
         rateioRepository.findById(rateioId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Rateio", rateioId));

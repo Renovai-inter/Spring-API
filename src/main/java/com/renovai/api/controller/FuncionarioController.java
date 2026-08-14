@@ -1,5 +1,5 @@
 package com.renovai.api.controller;
-
+ 
 import com.renovai.api.service.FuncionarioService;
 import com.renovai.api.service.FuncionarioService.FuncionarioRequest;
 import com.renovai.api.service.FuncionarioService.FuncionarioResponse;
@@ -11,17 +11,19 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+ 
 import java.util.List;
 import java.util.UUID;
-
+ 
 @RestController
 @RequestMapping("/funcionarios")
 @Tag(name = "Funcionários", description = "Gestão de funcionários e cooperados")
 public class FuncionarioController {
-private final FuncionarioService service;
-    
-    public FuncionarioController(FuncionarioService service) { 
-        this.service = service; 
+ 
+    private final FuncionarioService service;
+ 
+    public FuncionarioController(FuncionarioService service) {
+        this.service = service;
     }
  
     @GetMapping
@@ -43,24 +45,35 @@ private final FuncionarioService service;
     }
  
     @GetMapping("/por-cooperativa/{cooperativaId}")
-    @Operation(summary = "Listar funcionários por cooperativa")
+    @Operation(summary = "Listar funcionários por cooperativa — tela 4.9")
     public ResponseEntity<List<FuncionarioResponse>> listarPorCooperativa(
             @PathVariable UUID cooperativaId) {
         return ResponseEntity.ok(service.listarPorCooperativa(cooperativaId));
     }
-
+ 
+    @GetMapping("/motoristas/por-cooperativa/{cooperativaId}")
+    @Operation(summary = "Listar motoristas da cooperativa — tela 3.1")
+    public ResponseEntity<List<FuncionarioResponse>> listarMotoristasPorCooperativa(
+            @PathVariable UUID cooperativaId) {
+        return ResponseEntity.ok(service.listarMotoristasPorCooperativa(cooperativaId));
+    }
+ 
+    @GetMapping("/por-cooperativa/{cooperativaId}/por-status/{status}")
+    @Operation(summary = "Listar funcionários por cooperativa e status")
+    public ResponseEntity<List<FuncionarioResponse>> listarPorCooperativaEStatus(
+            @PathVariable UUID cooperativaId,
+            @PathVariable String status) {
+        return ResponseEntity.ok(service.listarPorCooperativaEStatus(cooperativaId, status));
+    }
+ 
     @GetMapping("/pre-cadastro/incompletos")
-    @Operation(summary = "Listar funcionários com pré-cadastro incompleto",
-               description = "Retorna usuários que fizeram pré-cadastro (0.3) mas não completaram o cadastro complementar (0.4). " +
-                             "Identifica-os pela ausência de email preenchido. Útil para o Admin acompanhar pendências.")
+    @Operation(summary = "Listar pré-cadastros incompletos")
     public ResponseEntity<List<PreCadastroIncompletoResponse>> listarComPreCadastroIncompleto() {
         return ResponseEntity.ok(service.listarComPreCadastroIncompleto());
     }
-
+ 
     @GetMapping("/pre-cadastro/incompletos/por-cooperativa/{cooperativaId}")
-    @Operation(summary = "Listar pré-cadastros incompletos por cooperativa",
-               description = "Retorna funcionários de uma cooperativa específica que fizeram pré-cadastro mas não completaram. " +
-                             "Útil para o Admin gerenciar pendências por unidade.")
+    @Operation(summary = "Listar pré-cadastros incompletos por cooperativa")
     public ResponseEntity<List<PreCadastroIncompletoResponse>> listarComPreCadastroIncompletoByCooperativa(
             @PathVariable UUID cooperativaId) {
         return ResponseEntity.ok(service.listarComPreCadastroIncompletoByCooperativa(cooperativaId));
@@ -73,9 +86,15 @@ private final FuncionarioService service;
     }
  
     @PostMapping
-    @Operation(summary = "Criar novo funcionário")
+    @Operation(summary = "Criar funcionário")
     public ResponseEntity<FuncionarioResponse> criar(@RequestBody @Valid FuncionarioRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(request));
+    }
+ 
+    @PostMapping("/pre-cadastro")
+    @Operation(summary = "Pré-cadastro de cooperado — tela 1.5")
+    public ResponseEntity<FuncionarioResponse> preCadastro(@RequestBody @Valid PreCadastroRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.preCadastro(request));
     }
  
     @PutMapping("/{id}/cargo/{cargoId}")
@@ -84,20 +103,23 @@ private final FuncionarioService service;
             @PathVariable UUID id, @PathVariable UUID cargoId) {
         return ResponseEntity.ok(service.atualizarCargo(id, cargoId));
     }
-
-    @PostMapping("/pre-cadastro")
-    @Operation(summary = "Realizar pré-cadastro de funcionário",
-               description = "Tela 0.3 do fluxo Renovaí. Cria usuário com CPF e senha temporária. " +
-                             "Email será preenchido no cadastro complementar (0.4).")
-    public ResponseEntity<FuncionarioResponse> preCadastro(
-            @RequestBody @Valid PreCadastroRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.preCadastro(request));
-    }
  
     @PutMapping("/{id}/desativar")
     @Operation(summary = "Desativar funcionário")
     public ResponseEntity<FuncionarioResponse> desativar(@PathVariable UUID id) {
         return ResponseEntity.ok(service.desativar(id));
+    }
+ 
+    @PutMapping("/{id}/afastar")
+    @Operation(summary = "Afastar funcionário")
+    public ResponseEntity<FuncionarioResponse> afastar(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.afastar(id));
+    }
+ 
+    @PutMapping("/{id}/reativar")
+    @Operation(summary = "Reativar funcionário")
+    public ResponseEntity<FuncionarioResponse> reativar(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.reativar(id));
     }
  
     @DeleteMapping("/{id}")

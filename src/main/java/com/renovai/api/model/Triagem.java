@@ -39,4 +39,7 @@ public class Triagem extends EventoOperacional {
 
     @Column(name = "quantidade_rejeito_kg", precision = 10, scale = 3)
     private BigDecimal quantidadeRejeitoKg = BigDecimal.ZERO;
+
+    @Column(name = "imagem_url", columnDefinition = "TEXT")
+    private String imagemUrl;
 }

@@ -13,17 +13,43 @@ import java.util.UUID;
 @Repository
 public interface TriagemRepository extends JpaRepository<Triagem, UUID> {
         List<Triagem> findByColeta_EventoId(UUID coletaId);
+
         List<Triagem> findByEquipe_EquipeId(UUID equipeId);
-    
+
         @Query("SELECT t FROM Triagem t WHERE t.equipe.equipeId = :equipeId AND t.dataEvento BETWEEN :dataInicio AND :dataFim")
         List<Triagem> findTriagensPorPeriodo(
-                @Param("equipeId") UUID equipeId,
-                @Param("dataInicio") LocalDateTime dataInicio,
-                @Param("dataFim") LocalDateTime dataFim);
-    
+                        @Param("equipeId") UUID equipeId,
+                        @Param("dataInicio") LocalDateTime dataInicio,
+                        @Param("dataFim") LocalDateTime dataFim);
+
         @Query("SELECT COUNT(t) FROM Triagem t WHERE t.equipe.equipeId = :equipeId AND t.dataEvento BETWEEN :dataInicio AND :dataFim")
         long countTriagensPorPeriodo(
-                @Param("equipeId") UUID equipeId,
-                @Param("dataInicio") LocalDateTime dataInicio,
-                @Param("dataFim") LocalDateTime dataFim);
+                        @Param("equipeId") UUID equipeId,
+                        @Param("dataInicio") LocalDateTime dataInicio,
+                        @Param("dataFim") LocalDateTime dataFim);
+
+        @Query("SELECT t FROM Triagem t WHERE t.equipe.gestor.cooperativa.cooperativaId = :cooperativaId ORDER BY t.dataEvento DESC")
+        List<Triagem> findByCooperativa(@Param("cooperativaId") UUID cooperativaId);
+
+        @Query("SELECT t FROM Triagem t WHERE t.equipe.gestor.cooperativa.cooperativaId = :cooperativaId AND t.status.statusAtual = :status")
+        List<Triagem> findByCooperativaAndStatus(
+                        @Param("cooperativaId") UUID cooperativaId,
+                        @Param("status") String status);
+
+        @Query("""
+                        SELECT t FROM Triagem t
+                        JOIN EquipeCooperado ec ON ec.equipe.equipeId = t.equipe.equipeId
+                        WHERE ec.cooperado.funcionarioId = :cooperadoId
+                        ORDER BY t.dataEvento DESC
+                        """)
+        List<Triagem> findByCooperado(@Param("cooperadoId") UUID cooperadoId);
+
+        @Query("""
+                        SELECT t FROM Triagem t
+                        JOIN EquipeCooperado ec ON ec.equipe.equipeId = t.equipe.equipeId
+                        WHERE ec.cooperado.funcionarioId = :cooperadoId
+                          AND t.status.statusAtual IN ('PENDENTE', 'EM_ANDAMENTO')
+                        ORDER BY t.dataEvento ASC
+                        """)
+        List<Triagem> findAbertysByCooperado(@Param("cooperadoId") UUID cooperadoId);
 }
