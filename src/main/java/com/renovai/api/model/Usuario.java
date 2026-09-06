@@ -55,9 +55,10 @@ public class Usuario {
 
     @Column(name = "esta_ativo")
     private Boolean estaAtivo = true;
-    @Column(name = "token_redefinicao", length = 64)
+
+    @Column(name = "token_redefinicao", length = 255)
     private String tokenRedefinicao;
 
-    @Column(name = "token_expiracao")
+    @Column(name = "data_token_expiracao")
     private LocalDateTime tokenExpiracao;
 }
