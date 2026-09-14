@@ -96,7 +96,6 @@ public class ColetaService {
         Coleta coleta = new Coleta();
         coleta.setCooperado(cooperado);
         coleta.setStatus(status);
-        coleta.setOrigem(request.origem());
         coleta.setQuantidadeKg(request.quantidadeKg());
         coleta.setTipoColeta(request.tipoColeta());
         coleta.setImagemUrl(request.imagemUrl());
@@ -107,7 +106,6 @@ public class ColetaService {
 
     public ColetaResponse atualizar(UUID id, ColetaRequest request) {
         Coleta coleta = findOrThrow(id);
-        coleta.setOrigem(request.origem());
         coleta.setQuantidadeKg(request.quantidadeKg());
         coleta.setTipoColeta(request.tipoColeta());
         coleta.setImagemUrl(request.imagemUrl());
@@ -151,7 +149,6 @@ public class ColetaService {
                 c.getCooperado().getFuncionarioId(),
                 c.getCooperado().getUsuario() != null ? c.getCooperado().getUsuario().getNome() : null,
                 c.getStatus() != null ? c.getStatus().getStatusAtual() : null,
-                c.getOrigem(),
                 c.getQuantidadeKg(),
                 c.getDataEvento(),
                 c.getTipoColeta(),

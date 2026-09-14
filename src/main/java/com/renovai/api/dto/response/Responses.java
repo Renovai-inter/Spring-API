@@ -83,7 +83,6 @@ public class Responses {
         UUID cooperadoId,
         String cooperadoNome,
         String statusAtual,
-        String origem,
         BigDecimal quantidadeKg,
         LocalDateTime dataColeta,
         String tipoColeta,
