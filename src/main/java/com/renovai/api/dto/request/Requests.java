@@ -1,9 +1,6 @@
 package com.renovai.api.dto.request;
 
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -43,16 +40,23 @@ public class Requests {
     ) {}
 
     public record PreCadastroRequest(
+        @NotBlank(message = "Nome é obrigatório")
         String nome,
+
+        @NotBlank(message = "CPF é obrigatório")
         String cpf,
+
+        @NotBlank(message = "Senha temporária é obrigatória")
+        @Size(min = 6, message = "Senha temporária deve ter no mínimo 6 caracteres")
         String senhaTemporaria,
+
+        @NotNull(message = "ID do cargo é obrigatório")
         UUID cargoId,
 
         @NotNull(message = "ID da cooperativa é obrigatório")
         UUID cooperativaId
     ) {}
 
-    // Material agora referencia categoriaId (UUID) em vez de String categoria
     public record MaterialRequest(
         @NotNull(message = "ID da categoria é obrigatório")
         UUID categoriaId,
@@ -116,8 +120,15 @@ public class Requests {
     ) {}
 
     public record CompletarCadastroRequest(
+        @NotBlank(message = "CPF é obrigatório")
         String cpf,
+
+        @NotBlank(message = "E-mail é obrigatório")
+        @Email(message = "Email inválido")
         String email,
+
+        @NotBlank(message = "Nova senha é obrigatória")
+        @Size(min = 6, message = "Senha deve ter no mínimo 6 caracteres")
         String novaSenha
     ) {}
 
@@ -130,6 +141,7 @@ public class Requests {
         @Email(message = "Email inválido")
         String email,
 
+        @NotBlank(message = "CNPJ é obrigatório")
         @Pattern(
             regexp = "\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}",
             message = "CNPJ inválido"
@@ -143,9 +155,7 @@ public class Requests {
 
         UUID statusId,
 
-        @Size(max = 255)
-        String origem,
-
+        @NotNull(message = "Quantidade é obrigatória")
         @DecimalMin(
             value = "0.001",
             message = "Quantidade deve ser maior que zero"
@@ -227,13 +237,12 @@ public class Requests {
         String comentario
     ) {}
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public class RateioRequest {
-        private UUID gestorId;
-        private UUID tipoRateioId;
-    }
+    public record RateioRequest(
+        @NotNull(message = "ID do gestor é obrigatório")
+        UUID gestorId,
+
+        UUID tipoRateioId
+    ) {}
 
     public record EstoqueRequest(
         @NotNull(message = "ID da cooperativa é obrigatório")
@@ -289,25 +298,33 @@ public class Requests {
         UUID cooperadoId
     ) {}
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public class RateioGeralRequest {
-        private UUID gestorId;
-        private UUID cooperativaId;
-        private LocalDateTime dataInicio;
-        private LocalDateTime dataFim;
-    }
+    public record RateioGeralRequest(
+        @NotNull(message = "ID do gestor é obrigatório")
+        UUID gestorId,
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public class RateioProporcionalsRequest {
-        private UUID gestorId;
-        private UUID cooperativaId;
-        private LocalDateTime dataInicio;
-        private LocalDateTime dataFim;
-    }
+        @NotNull(message = "ID da cooperativa é obrigatório")
+        UUID cooperativaId,
+
+        @NotNull(message = "Data de início é obrigatória")
+        LocalDateTime dataInicio,
+
+        @NotNull(message = "Data de fim é obrigatória")
+        LocalDateTime dataFim
+    ) {}
+
+    public record RateioProporcionalsRequest(
+        @NotNull(message = "ID do gestor é obrigatório")
+        UUID gestorId,
+
+        @NotNull(message = "ID da cooperativa é obrigatório")
+        UUID cooperativaId,
+
+        @NotNull(message = "Data de início é obrigatória")
+        LocalDateTime dataInicio,
+
+        @NotNull(message = "Data de fim é obrigatória")
+        LocalDateTime dataFim
+    ) {}
 
     public record RotaRequest(
         @NotNull UUID cooperativaId,
@@ -374,7 +391,7 @@ public class Requests {
     public record DespesaRequest(
         @NotNull UUID cooperativaId,
         @NotBlank @Size(max = 255) String nome,
-        @NotBlank String tipoDespesa,  // "FIXA" | "VARIAVEL"
+        @NotBlank String tipoDespesa,
         Boolean estaAtiva
     ) {}
     

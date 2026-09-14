@@ -1,6 +1,8 @@
 package com.renovai.api.exception;
 
 import io.swagger.v3.oas.annotations.Hidden;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +22,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // DTO de erro padrão
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     public record ErroResponse(
             LocalDateTime timestamp,
             int status,
@@ -40,21 +43,18 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    // 404 — Recurso não encontrado
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     public ResponseEntity<ErroResponse> handleRecursoNaoEncontrado(
             RecursoNaoEncontradoException ex, WebRequest request) {
         return buildError(HttpStatus.NOT_FOUND, "Não Encontrado", ex.getMessage(), request);
     }
 
-    // 422 — Regra de negócio violada
     @ExceptionHandler(RegraDeNegocioException.class)
     public ResponseEntity<ErroResponse> handleRegraDeNegocio(
             RegraDeNegocioException ex, WebRequest request) {
         return buildError(HttpStatus.UNPROCESSABLE_ENTITY, "Regra de Negócio", ex.getMessage(), request);
     }
 
-    // 400 — Validação de campos (@Valid)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(
             MethodArgumentNotValidException ex, WebRequest request) {
@@ -76,7 +76,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    // 409 — Violação de integridade de dados
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErroResponse> handleIllegalArgument(
+            IllegalArgumentException ex, WebRequest request) {
+        return buildError(HttpStatus.BAD_REQUEST, "Requisição Inválida",
+                "Um ou mais campos obrigatórios não foram informados corretamente.", request);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErroResponse> handleDataIntegrity(
             DataIntegrityViolationException ex, WebRequest request) {
@@ -84,14 +90,12 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.CONFLICT, "Conflito de Dados", msg, request);
     }
 
-    // 401 — Não autenticado
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErroResponse> handleAuthentication(
             AuthenticationException ex, WebRequest request) {
         return buildError(HttpStatus.UNAUTHORIZED, "Não Autenticado", ex.getMessage(), request);
     }
 
-    // 403 — Sem permissão
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErroResponse> handleAccessDenied(
             AccessDeniedException ex, WebRequest request) {
@@ -101,13 +105,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErroResponse> handleGeneric(Exception ex, WebRequest request) {
-        ex.printStackTrace(); // adicionar essa linha temporariamente
+        LOGGER.error("Erro não tratado ao processar requisição", ex);
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Erro Interno",
-                ex.getMessage(), request); // trocar mensagem genérica pela real
+                "Ocorreu um erro inesperado. Tente novamente mais tarde.", request);
     }
-
-
-
-
-    
 }
