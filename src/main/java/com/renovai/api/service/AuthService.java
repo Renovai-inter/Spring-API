@@ -42,6 +42,7 @@ public class AuthService {
         if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
             throw new RegraDeNegocioException("Credenciais inválidas.");
         }
+        
 
         Funcionario funcionario = funcionarioRepository.findByUsuario(usuario)
                 .orElseThrow(() -> new RegraDeNegocioException("Funcionário não encontrado."));
