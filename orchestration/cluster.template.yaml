@@ -1,0 +1,18 @@
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+  name: renovai-api-cluster
+  region: us-east-1
+
+iam:
+  serviceRoleARN: "arn:aws:iam::${ACCOUNT_ID_AWS}:role/LabRole"
+
+managedNodeGroups:
+  - name: renovai-api-nodes
+    instanceType: t2.micro
+    desiredCapacity: 1
+    minSize: 1
+    maxSize: 1
+    iam:
+      instanceRoleARN: "arn:aws:iam::${ACCOUNT_ID_AWS}:role/LabRole"

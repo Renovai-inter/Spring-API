@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: renovai-api
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: springboot-config
+  namespace: renovai-api
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springboot-api
+  namespace: renovai-api
+  labels:
+    app: springboot-api
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: springboot-api
+
+  template:
+    metadata:
+      labels:
+        app: springboot-api
+
+    spec:
+      imagePullSecrets:
+        - name: dockerhub-creds
+      containers:
+        - name: springboot-app
+
+          image: "kauaribeiro/renovai-api:latest"
+
+          ports:
+            - containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: springboot-config
+
+            - secretRef:
+                name: springboot-secrets
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+
+            limits:
+              cpu: "250m"
+              memory: "512Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+
+            initialDelaySeconds: 30
+            periodSeconds: 15
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: springboot-service
+  namespace: renovai-api
+
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+
+spec:
+  type: LoadBalancer
+
+  selector:
+    app: springboot-api
+
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: springboot-hpa
+  namespace: renovai-api
+
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: springboot-api
+
+  minReplicas: 1
+  maxReplicas: 2
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
