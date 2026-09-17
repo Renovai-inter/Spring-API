@@ -1,5 +1,5 @@
 package com.renovai.api.service;
- 
+
 import com.renovai.api.dto.request.Requests.AtualizarStatusTriagemRequest;
 import com.renovai.api.dto.request.Requests.ConcluirTriagemRequest;
 import com.renovai.api.dto.request.Requests.TriagemRequest;
@@ -10,15 +10,15 @@ import com.renovai.api.model.*;
 import com.renovai.api.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
- 
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
- 
+
 @Service
 @Transactional
 public class TriagemService {
- 
+
     private final TriagemRepository repository;
     private final EquipeRepository equipeRepository;
     private final ColetaRepository coletaRepository;
@@ -26,14 +26,16 @@ public class TriagemService {
     private final StatusRepository statusRepository;
     private final EstoqueRepository estoqueRepository;
     private final EquipeCooperadoRepository equipeCooperadoRepository;
- 
+    private final MovimentacaoEstoqueRepository movimentacaoEstoqueRepository;
+
     public TriagemService(TriagemRepository repository,
                           EquipeRepository equipeRepository,
                           ColetaRepository coletaRepository,
                           MaterialRepository materialRepository,
                           StatusRepository statusRepository,
                           EstoqueRepository estoqueRepository,
-                          EquipeCooperadoRepository equipeCooperadoRepository) {
+                          EquipeCooperadoRepository equipeCooperadoRepository,
+                          MovimentacaoEstoqueRepository movimentacaoEstoqueRepository) {
         this.repository = repository;
         this.equipeRepository = equipeRepository;
         this.coletaRepository = coletaRepository;
@@ -41,43 +43,44 @@ public class TriagemService {
         this.statusRepository = statusRepository;
         this.estoqueRepository = estoqueRepository;
         this.equipeCooperadoRepository = equipeCooperadoRepository;
+        this.movimentacaoEstoqueRepository = movimentacaoEstoqueRepository;
     }
- 
+
     @Transactional(readOnly = true)
     public List<TriagemResponse> listarTodas() {
         return repository.findAll().stream().map(this::toResponse).toList();
     }
- 
+
     @Transactional(readOnly = true)
     public TriagemResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
     }
- 
+
     @Transactional(readOnly = true)
     public List<TriagemResponse> listarPorColeta(UUID coletaId) {
         return repository.findByColeta_EventoId(coletaId).stream().map(this::toResponse).toList();
     }
- 
+
     @Transactional(readOnly = true)
     public List<TriagemResponse> listarPorCooperativa(UUID cooperativaId) {
         return repository.findByCooperativa(cooperativaId).stream().map(this::toResponse).toList();
     }
- 
+
     @Transactional(readOnly = true)
     public List<TriagemResponse> listarPorCooperativaEStatus(UUID cooperativaId, String status) {
         return repository.findByCooperativaAndStatus(cooperativaId, status).stream().map(this::toResponse).toList();
     }
- 
+
     @Transactional(readOnly = true)
     public List<TriagemResponse> listarPorCooperado(UUID cooperadoId) {
         return repository.findByCooperado(cooperadoId).stream().map(this::toResponse).toList();
     }
- 
+
     @Transactional(readOnly = true)
     public List<TriagemResponse> listarAbertasPorCooperado(UUID cooperadoId) {
         return repository.findAbertysByCooperado(cooperadoId).stream().map(this::toResponse).toList();
     }
- 
+
     public TriagemResponse criar(TriagemRequest request) {
         Equipe equipe = equipeRepository.findById(request.equipeId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Equipe", request.equipeId()));
@@ -85,28 +88,37 @@ public class TriagemService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Coleta", request.coletaId()));
         Material material = materialRepository.findById(request.materialId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Material", request.materialId()));
- 
+
         Status status = null;
         if (request.statusId() != null) {
             status = statusRepository.findById(request.statusId())
                     .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
         }
- 
+
+        BigDecimal quantidadeRejeitoKg = request.quantidadeRejeitoKg() != null
+                ? request.quantidadeRejeitoKg() : BigDecimal.ZERO;
+
+        if (quantidadeRejeitoKg.compareTo(request.quantidadeKg()) > 0) {
+            throw new RegraDeNegocioException("Quantidade de rejeito não pode ser maior que a quantidade triada.");
+        }
+
         Triagem triagem = new Triagem();
         triagem.setEquipe(equipe);
         triagem.setColeta(coleta);
         triagem.setMaterial(material);
         triagem.setStatus(status);
         triagem.setQuantidadeKg(request.quantidadeKg());
-        triagem.setQuantidadeRejeitoKg(
-                request.quantidadeRejeitoKg() != null ? request.quantidadeRejeitoKg() : BigDecimal.ZERO);
+        triagem.setQuantidadeRejeitoKg(quantidadeRejeitoKg);
         triagem.setImagemUrl(request.imagemUrl());
- 
+
         Triagem saved = repository.save(triagem);
-        atualizarEstoque(equipe.getGestor().getCooperativa(), material, request.quantidadeKg());
+
+        BigDecimal quantidadeLiquidaKg = request.quantidadeKg().subtract(quantidadeRejeitoKg);
+        registrarEntradaEstoque(equipe.getGestor().getCooperativa(), material, quantidadeLiquidaKg, saved);
+
         return toResponse(saved);
     }
- 
+
     public TriagemResponse atualizar(UUID id, TriagemRequest request) {
         Triagem triagem = findOrThrow(id);
         triagem.setQuantidadeKg(request.quantidadeKg());
@@ -120,7 +132,7 @@ public class TriagemService {
         }
         return toResponse(repository.save(triagem));
     }
- 
+
     public TriagemResponse atualizarStatus(UUID id, AtualizarStatusTriagemRequest request) {
         Triagem triagem = findOrThrow(id);
         Status status = statusRepository.findById(request.statusId())
@@ -128,7 +140,7 @@ public class TriagemService {
         triagem.setStatus(status);
         return toResponse(repository.save(triagem));
     }
- 
+
     public TriagemResponse concluir(UUID id, ConcluirTriagemRequest request) {
         Triagem triagem = findOrThrow(id);
         Status statusConcluida = statusRepository
@@ -140,13 +152,18 @@ public class TriagemService {
         }
         return toResponse(repository.save(triagem));
     }
- 
+
     public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
     }
- 
-    private void atualizarEstoque(Cooperativa cooperativa, Material material, BigDecimal quantidade) {
+
+    private void registrarEntradaEstoque(Cooperativa cooperativa, Material material,
+                                          BigDecimal quantidadeLiquidaKg, Triagem triagem) {
+        if (quantidadeLiquidaKg.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+
         Estoque estoque = estoqueRepository
                 .findByCooperativa_CooperativaIdAndMaterial_MaterialId(
                         cooperativa.getCooperativaId(), material.getMaterialId())
@@ -157,22 +174,28 @@ public class TriagemService {
                     novo.setQuantidadeKg(BigDecimal.ZERO);
                     return novo;
                 });
-        estoque.setQuantidadeKg(estoque.getQuantidadeKg().add(quantidade));
-        estoqueRepository.save(estoque);
+        estoque.setQuantidadeKg(estoque.getQuantidadeKg().add(quantidadeLiquidaKg));
+        Estoque estoqueSalvo = estoqueRepository.save(estoque);
+
+        MovimentacaoEstoque movimentacao = new MovimentacaoEstoque();
+        movimentacao.setEstoque(estoqueSalvo);
+        movimentacao.setTriagem(triagem);
+        movimentacao.setQuantidadeKg(quantidadeLiquidaKg);
+        movimentacaoEstoqueRepository.save(movimentacao);
     }
- 
+
     private Triagem findOrThrow(UUID id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Triagem", id));
     }
- 
+
     private TriagemResponse toResponse(Triagem t) {
         List<String> cooperadosNomes = equipeCooperadoRepository
                 .findByEquipe_EquipeId(t.getEquipe().getEquipeId())
                 .stream()
                 .map(ec -> ec.getCooperado().getUsuario().getNome())
                 .toList();
- 
+
         return new TriagemResponse(
                 t.getEventoId(),
                 t.getEquipe().getEquipeId(),

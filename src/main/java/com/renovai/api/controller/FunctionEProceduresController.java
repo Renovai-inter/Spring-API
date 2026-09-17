@@ -3,6 +3,7 @@ package com.renovai.api.controller;
 import com.renovai.api.dto.request.Requests;
 import com.renovai.api.dto.response.Responses;
 import com.renovai.api.service.FunctionEProceduresService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,13 +17,6 @@ import java.util.UUID;
 public class FunctionEProceduresController {
 
     private final FunctionEProceduresService service;
-
-
-    /*
-     * ============================================================
-     * FUNCTIONS
-     * ============================================================
-     */
 
     @GetMapping("/avaliacoes/media/{perfilId}")
     public ResponseEntity<Responses.MediaAvaliacoesResponse> calcularMediaAvaliacoes(
@@ -50,7 +44,7 @@ public class FunctionEProceduresController {
 
     @PostMapping("/coletas/rejeito")
     public ResponseEntity<Responses.QuantidadeRejeitoResponse> calcularQuantidadeRejeitoKg(
-            @RequestBody Requests.CalcularRejeitoRequest request
+            @RequestBody @Valid Requests.CalcularRejeitoRequest request
     ) {
         BigDecimal resultado = service.calcularQuantidadeRejeitoKg(
             request.triagemQuantidadeKg(),
@@ -65,7 +59,7 @@ public class FunctionEProceduresController {
 
     @PostMapping("/rateio/automatico")
     public ResponseEntity<Responses.RateioAutomaticoResponse> calcularRateioAutomatico(
-            @RequestBody Requests.CalcularRateioRequest request
+            @RequestBody @Valid Requests.CalcularRateioRequest request
     ) {
         BigDecimal resultado = service.calcularRateioAutomatico(
             request.cooperativaId(),
@@ -80,7 +74,7 @@ public class FunctionEProceduresController {
 
     @PostMapping("/financeiro/acumulado")
     public ResponseEntity<Responses.TotalAcumuladoResponse> calcularTotalAcumulado(
-            @RequestBody Requests.CalcularTotalRequest request
+            @RequestBody @Valid Requests.CalcularTotalRequest request
     ) {
         BigDecimal resultado = service.calcularTotalAcumulado(
             request.cooperativaId(),
@@ -96,7 +90,7 @@ public class FunctionEProceduresController {
 
     @PostMapping("/financeiro/liquido")
     public ResponseEntity<Responses.TotalLiquidoResponse> calcularTotalLiquido(
-            @RequestBody Requests.CalcularTotalRequest request
+            @RequestBody @Valid Requests.CalcularTotalRequest request
     ) {
         BigDecimal resultado = service.calcularTotalLiquido(
             request.cooperativaId(),
@@ -112,7 +106,7 @@ public class FunctionEProceduresController {
 
     @PostMapping("/categorias/total-kg")
     public ResponseEntity<Responses.TotalKgCategoriaResponse> calcularTotalKgPorCategoria(
-            @RequestBody Requests.CalcularTotalCategoriaRequest request
+            @RequestBody @Valid Requests.CalcularTotalCategoriaRequest request
     ) {
         BigDecimal resultado = service.calcularTotalKgPorCategoria(
             request.categoriaId(),
@@ -126,15 +120,9 @@ public class FunctionEProceduresController {
     }
 
 
-    /*
-     * ============================================================
-     * PROCEDURES
-     * ============================================================
-     */
-
     @PostMapping("/pedidos/aceitar")
     public ResponseEntity<Responses.ProcedureResponse> aceitarPedidoCooperativa(
-            @RequestBody Requests.AceitarPedidoCooperativaRequest request
+            @RequestBody @Valid Requests.AceitarPedidoCooperativaRequest request
     ) {
         service.aceitarPedidoCooperativa(
             request.pedidoCooperativaId(),
@@ -152,7 +140,7 @@ public class FunctionEProceduresController {
 
     @PostMapping("/negociacoes/fechar")
     public ResponseEntity<Responses.ProcedureResponse> fecharNegociacao(
-            @RequestBody Requests.FecharNegociacaoProcedureRequest request
+            @RequestBody @Valid Requests.FecharNegociacaoProcedureRequest request
     ) {
         service.fecharNegociacao(
             request.negociacaoId(),
@@ -170,7 +158,7 @@ public class FunctionEProceduresController {
 
     @PostMapping("/rateios/fechar")
     public ResponseEntity<Responses.ProcedureResponse> fecharRateioMensal(
-            @RequestBody Requests.FecharRateioMensalRequest request
+            @RequestBody @Valid Requests.FecharRateioMensalRequest request
     ) {
         service.fecharRateioMensal(
             request.cooperativaId(),
@@ -189,7 +177,7 @@ public class FunctionEProceduresController {
 
     @PostMapping("/triagens/movimentacao")
     public ResponseEntity<Responses.ProcedureResponse> registrarMovimentacaoTriagem(
-            @RequestBody Requests.RegistrarMovimentacaoTriagemRequest request
+            @RequestBody @Valid Requests.RegistrarMovimentacaoTriagemRequest request
     ) {
         service.registrarMovimentacaoTriagem(
             request.equipeId(),

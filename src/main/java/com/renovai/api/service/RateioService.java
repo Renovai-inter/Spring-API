@@ -35,20 +35,20 @@ public class RateioService {
 
     @Transactional
     public RateioRealizadoResponse executarRateioGeral(RateioGeralRequest req) {
-        Funcionario gestor = funcionarioRepository.findById(req.getGestorId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Gestor", req.getGestorId()));
+        Funcionario gestor = funcionarioRepository.findById(req.gestorId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Gestor", req.gestorId()));
 
-        Cooperativa cooperativa = cooperativaRepository.findById(req.getCooperativaId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", req.getCooperativaId()));
+        Cooperativa cooperativa = cooperativaRepository.findById(req.cooperativaId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", req.cooperativaId()));
 
-        validarGestorDaCooperativa(gestor, req.getCooperativaId());
+        validarGestorDaCooperativa(gestor, req.cooperativaId());
 
-        List<Funcionario> cooperados = funcionarioRepository.findAtivosByCooperativa(req.getCooperativaId());
+        List<Funcionario> cooperados = funcionarioRepository.findAtivosByCooperativa(req.cooperativaId());
         if (cooperados.isEmpty()) {
-            throw new RegraDeNegocioException("Nenhum cooperado ativo encontrado para a cooperativa " + req.getCooperativaId());
+            throw new RegraDeNegocioException("Nenhum cooperado ativo encontrado para a cooperativa " + req.cooperativaId());
         }
 
-        BigDecimal totalVendas = calcularTotalVendasPeriodo(req.getCooperativaId(), req.getDataInicio(), req.getDataFim());
+        BigDecimal totalVendas = calcularTotalVendasPeriodo(req.cooperativaId(), req.dataInicio(), req.dataFim());
         if (totalVendas.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RegraDeNegocioException("Não há vendas registradas no período informado para realizar o rateio.");
         }
@@ -58,7 +58,7 @@ public class RateioService {
                         TipoRateio.builder().tipoRateio("GERAL")
                                 .descricao("Divisão igualitária entre todos os cooperados ativos").build()));
 
-        LocalDate mesReferencia = req.getDataInicio().toLocalDate().withDayOfMonth(1);
+        LocalDate mesReferencia = req.dataInicio().toLocalDate().withDayOfMonth(1);
         Rateio rateio = rateioRepository.save(Rateio.builder()
                 .gestor(gestor)
                 .cooperativa(cooperativa)
@@ -87,20 +87,20 @@ public class RateioService {
 
     @Transactional
     public RateioRealizadoResponse executarRateioProporcional(RateioProporcionalsRequest req) {
-        Funcionario gestor = funcionarioRepository.findById(req.getGestorId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Gestor", req.getGestorId()));
+        Funcionario gestor = funcionarioRepository.findById(req.gestorId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Gestor", req.gestorId()));
 
-        Cooperativa cooperativa = cooperativaRepository.findById(req.getCooperativaId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", req.getCooperativaId()));
+        Cooperativa cooperativa = cooperativaRepository.findById(req.cooperativaId())
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", req.cooperativaId()));
 
-        validarGestorDaCooperativa(gestor, req.getCooperativaId());
+        validarGestorDaCooperativa(gestor, req.cooperativaId());
 
-        List<Funcionario> cooperados = funcionarioRepository.findAtivosByCooperativa(req.getCooperativaId());
+        List<Funcionario> cooperados = funcionarioRepository.findAtivosByCooperativa(req.cooperativaId());
         if (cooperados.isEmpty()) {
-            throw new RegraDeNegocioException("Nenhum cooperado ativo encontrado para a cooperativa " + req.getCooperativaId());
+            throw new RegraDeNegocioException("Nenhum cooperado ativo encontrado para a cooperativa " + req.cooperativaId());
         }
 
-        BigDecimal totalVendas = calcularTotalVendasPeriodo(req.getCooperativaId(), req.getDataInicio(), req.getDataFim());
+        BigDecimal totalVendas = calcularTotalVendasPeriodo(req.cooperativaId(), req.dataInicio(), req.dataFim());
         if (totalVendas.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RegraDeNegocioException("Não há vendas registradas no período informado para realizar o rateio.");
         }
@@ -108,8 +108,8 @@ public class RateioService {
         record Pontuacao(Funcionario funcionario, long coletas, long triagens, long total) {}
 
         List<Pontuacao> pontuacoes = cooperados.stream().map(c -> {
-            long coletas = coletaRepository.countColetasPorPeriodo(c.getFuncionarioId(), req.getDataInicio(), req.getDataFim());
-            long triagens = triagemRepository.countTriagensPorPeriodo(c.getFuncionarioId(), req.getDataInicio(), req.getDataFim());
+            long coletas = coletaRepository.countColetasPorPeriodo(c.getFuncionarioId(), req.dataInicio(), req.dataFim());
+            long triagens = triagemRepository.countTriagensPorPeriodo(c.getFuncionarioId(), req.dataInicio(), req.dataFim());
             long totalPontos = coletas + triagens;
             return new Pontuacao(c, coletas, triagens, totalPontos);
         }).toList();
@@ -128,7 +128,7 @@ public class RateioService {
                         TipoRateio.builder().tipoRateio("PROPORCIONAL")
                                 .descricao("Divisão proporcional à produtividade individual no período").build()));
 
-        LocalDate mesReferencia = req.getDataInicio().toLocalDate().withDayOfMonth(1);
+        LocalDate mesReferencia = req.dataInicio().toLocalDate().withDayOfMonth(1);
 
         Rateio rateio = rateioRepository.save(Rateio.builder()
                 .gestor(gestor)

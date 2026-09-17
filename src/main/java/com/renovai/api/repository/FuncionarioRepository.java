@@ -27,7 +27,7 @@ public interface FuncionarioRepository extends JpaRepository<Funcionario, UUID> 
 
        @Query("SELECT f FROM Funcionario f " +
                      "JOIN f.usuario u " +
-                     "WHERE u.email IS NULL OR u.email = '' " +
+                     "WHERE (u.email IS NULL OR u.email = '') " +
                      "AND f.estaAtivo = true " +
                      "ORDER BY f.dataAdmissao DESC")
        List<Funcionario> findComPreCadastroIncompleto();

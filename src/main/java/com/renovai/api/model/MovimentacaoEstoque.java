@@ -44,7 +44,7 @@ public class MovimentacaoEstoque {
     @Column(name = "quantidade_kg", nullable = false, precision = 10, scale = 3)
     private BigDecimal quantidadeKg;
 
-    @Column(name = "tipo_movimentacao", length = 10)
+    @Column(name = "tipo_movimentacao", length = 10, insertable = false, updatable = false)
     private String tipoMovimentacao;
 
     @Column(name = "data_movimentacao", nullable = false)

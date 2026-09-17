@@ -5,6 +5,7 @@ import com.renovai.api.exception.RecursoNaoEncontradoException;
 import com.renovai.api.exception.RegraDeNegocioException;
 import com.renovai.api.model.*;
 import com.renovai.api.repository.*;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +36,10 @@ public class FuncionarioService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public record FuncionarioRequest(UUID usuarioId, UUID cargoId, UUID cooperativaId) {}
+    public record FuncionarioRequest(
+            @NotNull(message = "ID do usuário é obrigatório") UUID usuarioId,
+            @NotNull(message = "ID do cargo é obrigatório") UUID cargoId,
+            @NotNull(message = "ID da cooperativa é obrigatório") UUID cooperativaId) {}
 
     public record FuncionarioResponse(
             UUID funcionarioId, UUID usuarioId, String usuarioNome,

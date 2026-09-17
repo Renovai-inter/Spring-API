@@ -12,9 +12,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -42,35 +39,22 @@ public class AuthService {
         Usuario usuario = usuarioRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RegraDeNegocioException("Credenciais inválidas."));
 
-        String senhaHasheada = hashSha256(request.senha());
-        if (!senhaHasheada.equals(usuario.getSenhaHash()))
+        if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
             throw new RegraDeNegocioException("Credenciais inválidas.");
+        }
 
         Funcionario funcionario = funcionarioRepository.findByUsuario(usuario)
                 .orElseThrow(() -> new RegraDeNegocioException("Funcionário não encontrado."));
 
-        if (!"ATIVO".equals(funcionario.getStatusFuncionario()))
+        if (!"ATIVO".equals(funcionario.getStatusFuncionario())) {
             throw new RegraDeNegocioException("Usuário inativo ou afastado.");
+        }
 
         usuario.setUltimoAcesso(LocalDateTime.now());
         usuarioRepository.save(usuario);
 
         String role = funcionario.getCargo().getCargo();
         return new LoginResponse(tokenProvider.gerarToken(usuario.getEmail(), role), usuario.getEmail(), role);
-    }
-
-    private String hashSha256(String input) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : hashBytes) {
-                hex.append(String.format("%02x", b));
-            }
-            return hex.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Erro ao hashear senha.", e);
-        }
     }
 
     @Transactional
