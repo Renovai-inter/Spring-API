@@ -51,4 +51,13 @@ public class Perfil {
 
     @Column(name = "esta_ativo", nullable = false)
     private Boolean estaAtivo = true;
+
+    @Column(name = "senha_hash")
+    private String senhaHash;
+
+    @Column(name = "token_redefinicao")
+    private String tokenRedefinicao;
+
+    @Column(name = "data_token_expiracao")
+    private LocalDateTime tokenExpiracao;
 }

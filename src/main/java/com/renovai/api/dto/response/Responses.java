@@ -10,9 +10,9 @@ import com.renovai.api.dto.response.Responses.ResultadoRateioIndividualResponse;
 
 public class Responses {
 
-    public record LoginResponse(String token, String tipo, String email, String role) {
-        public LoginResponse(String token, String email, String role) {
-            this(token, "Bearer", email, role);
+    public record LoginResponse(String token, String tipo, String email, String role, UUID usuarioId) {
+        public LoginResponse(String token, String email, String role, UUID usuarioId) {
+            this(token, "Bearer", email, role, usuarioId);
         }
     }
 
