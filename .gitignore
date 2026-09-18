@@ -1,5 +1,5 @@
 target/
-.env
+*.env
 *.class
 application-dev.properties
 
@@ -12,3 +12,6 @@ logs/
 
 application-local.properties
 application.properties
+
+*secret.yaml
+*cluster.yaml
