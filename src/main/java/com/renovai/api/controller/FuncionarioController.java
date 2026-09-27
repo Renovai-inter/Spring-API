@@ -79,6 +79,12 @@ public class FuncionarioController {
         return ResponseEntity.ok(service.listarComPreCadastroIncompletoByCooperativa(cooperativaId));
     }
  
+    @GetMapping("/por-usuario/{usuarioId}")
+    @Operation(summary = "Buscar funcionário pelo usuarioId do login (usado pelo app para descobrir qual cooperado/motorista/gestor está logado, sem precisar listar todos os funcionários)")
+    public ResponseEntity<FuncionarioResponse> buscarPorUsuarioId(@PathVariable UUID usuarioId) {
+        return ResponseEntity.ok(service.buscarPorUsuarioId(usuarioId));
+    }
+ 
     @GetMapping("/{id}")
     @Operation(summary = "Buscar funcionário por ID")
     public ResponseEntity<FuncionarioResponse> buscarPorId(@PathVariable UUID id) {

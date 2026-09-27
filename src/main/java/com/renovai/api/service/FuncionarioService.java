@@ -106,6 +106,22 @@ public class FuncionarioService {
                 .map(this::toPreCadastroIncompletoResponse).toList();
     }
 
+    /**
+     * Busca o Funcionario a partir do usuarioId devolvido por POST /auth/login.
+     * Existe porque GET /funcionarios (listarTodos) carrega a tabela inteira só
+     * pra achar UM registro do lado do cliente — além de ineficiente, um único
+     * registro com relação quebrada (usuario/cargo/cooperativa nulos) derruba a
+     * lista inteira com 500. Esta consulta é direcionada e não sofre com isso.
+     */
+    @Transactional(readOnly = true)
+    public FuncionarioResponse buscarPorUsuarioId(UUID usuarioId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário", usuarioId));
+        Funcionario funcionario = repository.findByUsuario(usuario)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Funcionário", usuarioId));
+        return toResponse(funcionario);
+    }
+
     @Transactional(readOnly = true)
     public FuncionarioResponse buscarPorId(UUID id) {
         return toResponse(findOrThrow(id));
@@ -196,15 +212,25 @@ public class FuncionarioService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Funcionário", id));
     }
 
+    /**
+     * Blindado contra relações nulas (usuario/cargo/cooperativa) — antes, um
+     * único registro com FK quebrada derrubava QUALQUER listagem (ex.:
+     * listarTodos()) com 500, porque toResponse() acessava os getters direto.
+     * Agora esse registro específico aparece com os campos correspondentes
+     * nulos, em vez de quebrar a resposta inteira.
+     */
     private FuncionarioResponse toResponse(Funcionario f) {
+        Usuario usuario = f.getUsuario();
+        Cargo cargo = f.getCargo();
+        Cooperativa cooperativa = f.getCooperativa();
         return new FuncionarioResponse(
                 f.getFuncionarioId(),
-                f.getUsuario().getUsuarioId(),
-                f.getUsuario().getNome(),
-                f.getCargo().getCargoId(),
-                f.getCargo().getCargo(),
-                f.getCooperativa().getCooperativaId(),
-                f.getCooperativa().getNome(),
+                usuario != null ? usuario.getUsuarioId() : null,
+                usuario != null ? usuario.getNome() : null,
+                cargo != null ? cargo.getCargoId() : null,
+                cargo != null ? cargo.getCargo() : null,
+                cooperativa != null ? cooperativa.getCooperativaId() : null,
+                cooperativa != null ? cooperativa.getNome() : null,
                 f.getEstaAtivo(),
                 f.getStatusFuncionario()
         );
