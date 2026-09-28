@@ -109,8 +109,10 @@ public class AuthService {
                     role = "GESTOR_COOPERATIVA";
                 } else if ("Cooperado".equalsIgnoreCase(cargo)) {
                     role = "COOPERADO";
+                } else if ("Administrador".equalsIgnoreCase(cargo)) {
+                    role = "ADMIN_SITE";
                 } else {
-                    role = cargo.toUpperCase();
+                    role = cargo.toUpperCase().replace(" ", "_");
                 }
                 return new LoginResponse(tokenProvider.gerarToken(usuario.getEmail(), role), usuario.getEmail(), role, usuario.getUsuarioId());
             }
