@@ -101,7 +101,17 @@ public class AuthService {
                 }
                 usuario.setUltimoAcesso(LocalDateTime.now());
                 usuarioRepository.save(usuario);
-                String role = funcionario.getCargo().getCargo();
+                String cargo = funcionario.getCargo().getCargo();
+
+                String role;
+
+                if ("Gestor".equalsIgnoreCase(cargo)) {
+                    role = "GESTOR_COOPERATIVA";
+                } else if ("Cooperado".equalsIgnoreCase(cargo)) {
+                    role = "COOPERADO";
+                } else {
+                    role = cargo.toUpperCase();
+                }
                 return new LoginResponse(tokenProvider.gerarToken(usuario.getEmail(), role), usuario.getEmail(), role, usuario.getUsuarioId());
             }
         }
