@@ -144,7 +144,7 @@ public class TriagemService {
     public TriagemResponse concluir(UUID id, ConcluirTriagemRequest request) {
         Triagem triagem = findOrThrow(id);
         Status statusConcluida = statusRepository
-                .findByReferenciaAndStatusAtual("TRIAGEM", "CONCLUIDA")
+                .findByReferenciaAndStatusAtual("TRIAGEM", "Concluído")
                 .orElseThrow(() -> new RegraDeNegocioException("Status CONCLUIDA não encontrado para TRIAGEM."));
         triagem.setStatus(statusConcluida);
         if (request.quantidadeFinalKg() != null) {
