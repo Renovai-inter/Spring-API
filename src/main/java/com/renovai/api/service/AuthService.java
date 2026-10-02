@@ -10,13 +10,16 @@ import com.renovai.api.repository.FuncionarioRepository;
 import com.renovai.api.repository.PerfilRepository;
 import com.renovai.api.repository.UsuarioRepository;
 import com.renovai.api.security.JwtTokenProvider;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -27,112 +30,148 @@ public class AuthService {
     private final PerfilRepository perfilRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final EmpresaSchemaService empresaSchemaService;
 
-    public AuthService(UsuarioRepository usuarioRepository,
-            FuncionarioRepository funcionarioRepository, PerfilRepository perfilRepository,
+    public AuthService(
+            UsuarioRepository usuarioRepository,
+            FuncionarioRepository funcionarioRepository,
+            PerfilRepository perfilRepository,
             PasswordEncoder passwordEncoder,
-            JwtTokenProvider tokenProvider) {
+            JwtTokenProvider tokenProvider,
+            EmpresaSchemaService empresaSchemaService) {
         this.usuarioRepository = usuarioRepository;
         this.funcionarioRepository = funcionarioRepository;
         this.perfilRepository = perfilRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.empresaSchemaService = empresaSchemaService;
     }
 
+    @Transactional
+    public LoginResponse login(LoginRequest request) {
+        if (empresaSchemaService.ehEmpresa(request.email())) {
+            return empresaSchemaService.login(request);
+        }
+
+        Optional<Usuario> usuarioEncontrado = usuarioRepository.findByEmail(request.email());
+        if (usuarioEncontrado.isEmpty()) {
+            return loginPerfil(request);
+        }
+        Usuario usuario = usuarioEncontrado.get();
+
+        if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
+            throw new RegraDeNegocioException("Credenciais inválidas.");
+        }
+        Funcionario funcionario =
+                funcionarioRepository
+                        .findByUsuario(usuario)
+                        .orElseThrow(
+                                () -> new RegraDeNegocioException("Funcionário não encontrado."));
+
+        if (!"ATIVO".equals(funcionario.getStatusFuncionario())) {
+            throw new RegraDeNegocioException("Usuário inativo ou afastado.");
+        }
+
+        usuario.setUltimoAcesso(LocalDateTime.now());
+        usuarioRepository.save(usuario);
+
+        String role = roleDoCargo(funcionario.getCargo().getCargo());
+        return new LoginResponse(
+                tokenProvider.gerarToken(usuario.getEmail(), role),
+                usuario.getEmail(),
+                role,
+                usuario.getUsuarioId());
+    }
+
+    private LoginResponse loginPerfil(LoginRequest request) {
+        Perfil perfil =
+                perfilRepository
+                        .findByEmail(request.email())
+                        .orElseThrow(() -> new RegraDeNegocioException("Credenciais inválidas."));
+        if (!Boolean.TRUE.equals(perfil.getEstaAtivo())) {
+            throw new RegraDeNegocioException("Perfil inativo.");
+        }
+        if (!passwordEncoder.matches(request.senha(), perfil.getSenhaHash())) {
+            throw new RegraDeNegocioException("Credenciais inválidas.");
+        }
+        String role = perfil.getEmpresa() != null ? "GESTOR_EMPRESA" : "ADMIN_COOPERATIVA";
+        return new LoginResponse(
+                tokenProvider.gerarToken(perfil.getEmail(), role),
+                perfil.getEmail(),
+                role,
+                perfil.getPerfilId());
+    }
+
+    private String roleDoCargo(String cargo) {
+        String role = cargo.trim().toUpperCase(Locale.ROOT).replace(" ", "_");
+        if (role.startsWith("ROLE_")) {
+            role = role.substring(5);
+        }
+        return switch (role) {
+            case "GESTOR" -> "GESTOR_COOPERATIVA";
+            case "ADMIN", "ADMINISTRADOR" -> "ADMIN_SITE";
+            default -> role;
+        };
+    }
 
     @Transactional
     public String solicitarRedefinicaoSenha(String email) {
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmail(email);
-        if (usuarioOpt.isPresent()) {
-            Usuario usuario = usuarioOpt.get();
-            String token = gerarTokenSeguro();
+        String token = gerarTokenSeguro();
+        LocalDateTime expiracao = LocalDateTime.now().plusMinutes(30);
+        Optional<Usuario> usuarioEncontrado = usuarioRepository.findByEmail(email);
+        if (usuarioEncontrado.isPresent()) {
+            Usuario usuario = usuarioEncontrado.get();
             usuario.setTokenRedefinicao(token);
-            usuario.setTokenExpiracao(LocalDateTime.now().plusMinutes(30));
+            usuario.setTokenExpiracao(expiracao);
             usuarioRepository.save(usuario);
-            return token;
+        } else {
+            Perfil perfil =
+                    perfilRepository
+                            .findByEmail(email)
+                            .orElseThrow(
+                                    () -> new RegraDeNegocioException("E-mail não encontrado."));
+            perfil.setTokenRedefinicao(token);
+            perfil.setTokenExpiracao(expiracao);
+            perfilRepository.save(perfil);
         }
 
-        Perfil perfil = perfilRepository.findByEmail(email)
-                .orElseThrow(() -> new RegraDeNegocioException("E-mail não encontrado."));
-        String token = gerarTokenSeguro();
-        perfil.setTokenRedefinicao(token);
-        perfil.setTokenExpiracao(LocalDateTime.now().plusMinutes(30));
-        perfilRepository.save(perfil);
         return token;
     }
 
     @Transactional
     public void redefinirSenha(String token, String novaSenha) {
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByTokenRedefinicao(token);
-        if (usuarioOpt.isPresent()) {
-            Usuario usuario = usuarioOpt.get();
-            if (usuario.getTokenExpiracao() == null || LocalDateTime.now().isAfter(usuario.getTokenExpiracao())) {
-                throw new RegraDeNegocioException("Token expirado. Solicite uma nova redefinição.");
-            }
+        if (novaSenha.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new RegraDeNegocioException("Senha deve ter até 72 bytes.");
+        }
+        Optional<Usuario> usuarioEncontrado = usuarioRepository.findByTokenRedefinicao(token);
+        if (usuarioEncontrado.isPresent()) {
+            Usuario usuario = usuarioEncontrado.get();
+            validarExpiracao(usuario.getTokenExpiracao());
             usuario.setSenhaHash(passwordEncoder.encode(novaSenha));
             usuario.setTokenRedefinicao(null);
             usuario.setTokenExpiracao(null);
             usuarioRepository.save(usuario);
-            return;
+        } else {
+            Perfil perfil =
+                    perfilRepository
+                            .findByTokenRedefinicao(token)
+                            .orElseThrow(
+                                    () ->
+                                            new RegraDeNegocioException(
+                                                    "Token inválido ou expirado."));
+            validarExpiracao(perfil.getTokenExpiracao());
+            perfil.setSenhaHash(passwordEncoder.encode(novaSenha));
+            perfil.setTokenRedefinicao(null);
+            perfil.setTokenExpiracao(null);
+            perfilRepository.save(perfil);
         }
+    }
 
-        Perfil perfil = perfilRepository.findByTokenRedefinicao(token)
-                .orElseThrow(() -> new RegraDeNegocioException("Token inválido ou expirado."));
-        if (perfil.getTokenExpiracao() == null || LocalDateTime.now().isAfter(perfil.getTokenExpiracao())) {
+    private void validarExpiracao(LocalDateTime expiracao) {
+        if (expiracao == null || !LocalDateTime.now().isBefore(expiracao)) {
             throw new RegraDeNegocioException("Token expirado. Solicite uma nova redefinição.");
         }
-        perfil.setSenhaHash(passwordEncoder.encode(novaSenha));
-        perfil.setTokenRedefinicao(null);
-        perfil.setTokenExpiracao(null);
-        perfilRepository.save(perfil);
     }
-
-    @Transactional
-    public LoginResponse login(LoginRequest request) {
-
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmail(request.email());
-        if (usuarioOpt.isPresent()) {
-            Usuario usuario = usuarioOpt.get();
-            if (passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
-                Funcionario funcionario = funcionarioRepository.findByUsuario(usuario)
-                        .orElseThrow(() -> new RegraDeNegocioException("Funcionário não encontrado."));
-                if (!"ATIVO".equals(funcionario.getStatusFuncionario())) {
-                    throw new RegraDeNegocioException("Usuário inativo ou afastado.");
-                }
-                usuario.setUltimoAcesso(LocalDateTime.now());
-                usuarioRepository.save(usuario);
-                String cargo = funcionario.getCargo().getCargo();
-
-                String role;
-
-                if ("Gestor".equalsIgnoreCase(cargo)) {
-                    role = "GESTOR_COOPERATIVA";
-                } else if ("Cooperado".equalsIgnoreCase(cargo)) {
-                    role = "COOPERADO";
-                } else if ("Administrador".equalsIgnoreCase(cargo)) {
-                    role = "ADMIN_SITE";
-                } else {
-                    role = cargo.toUpperCase().replace(" ", "_");
-                }
-                return new LoginResponse(tokenProvider.gerarToken(usuario.getEmail(), role), usuario.getEmail(), role, usuario.getUsuarioId());
-            }
-        }
-
-        Perfil perfil = perfilRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RegraDeNegocioException("Credenciais inválidas."));
-
-        if (!perfil.getEstaAtivo()) {
-            throw new RegraDeNegocioException("Perfil inativo.");
-        }
-
-        if (!passwordEncoder.matches(request.senha(), perfil.getSenhaHash())) {
-            throw new RegraDeNegocioException("Credenciais inválidas.");
-        }
-
-        String role = perfil.getEmpresa() != null ? "GESTOR_EMPRESA" : "ADMIN_COOPERATIVA";
-        return new LoginResponse(tokenProvider.gerarToken(perfil.getEmail(), role), perfil.getEmail(), role, perfil.getPerfilId());
-    }
-
 
     private String gerarTokenSeguro() {
         byte[] bytes = new byte[32];
