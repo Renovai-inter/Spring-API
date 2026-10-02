@@ -108,7 +108,7 @@ class AuthServiceTest {
         assertThatThrownBy(() -> service.login(login))
                 .isInstanceOf(RegraDeNegocioException.class)
                 .hasMessage("Credenciais inválidas.");
-        verifyNoInteractions(tokenProvider, funcionarioRepository, perfilRepository);
+        verifyNoInteractions(tokenProvider, funcionarioRepository);
         verify(usuarioRepository, never()).save(any());
     }
 
@@ -162,7 +162,7 @@ class AuthServiceTest {
         assertThat(usuario.getTokenExpiracao())
                 .isBetween(antes.plusMinutes(30), LocalDateTime.now().plusMinutes(30));
         verify(usuarioRepository).save(usuario);
-        verifyNoInteractions(perfilRepository);
+        verify(perfilRepository).findByEmailIgnoreCase(login.email());
     }
 
     @Test
@@ -224,6 +224,26 @@ class AuthServiceTest {
         assertThatThrownBy(() -> service.redefinirSenha("token", "á".repeat(37)))
                 .hasMessage("Senha deve ter até 72 bytes.");
         verifyNoInteractions(usuarioRepository, perfilRepository, passwordEncoder);
+    }
+
+    @Test
+    void cooperativaPriorizaCredencialInstitucionalMesmoComUsuarioDoMesmoEmail() {
+        Perfil perfil = perfil();
+        perfil.setCooperativa(new Cooperativa());
+        when(perfilRepository.findByEmail(login.email())).thenReturn(Optional.of(perfil));
+        when(passwordEncoder.matches(login.senha(), perfil.getSenhaHash())).thenReturn(true);
+        assertThat(service.login(login).usuarioId()).isEqualTo(perfil.getPerfilId());
+        verifyNoInteractions(usuarioRepository, funcionarioRepository);
+    }
+
+    @Test
+    void recuperacaoPriorizaMesmaContaInstitucionalDoLogin() {
+        Perfil perfil = perfil();
+        perfil.setEmpresa(new com.renovai.api.model.Empresa());
+        when(perfilRepository.findByEmailIgnoreCase(login.email())).thenReturn(Optional.of(perfil));
+        service.solicitarRedefinicaoSenha(login.email());
+        verify(perfilRepository).save(perfil);
+        verifyNoInteractions(usuarioRepository);
     }
 
     private Usuario usuario() {

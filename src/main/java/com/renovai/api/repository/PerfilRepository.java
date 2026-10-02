@@ -19,6 +19,8 @@ public interface PerfilRepository extends JpaRepository<Perfil, UUID> {
 
         Optional<Perfil> findByEmail(String email);
 
+        Optional<Perfil> findByEmailIgnoreCase(String email);
+
         boolean existsByEmail(String email);
 
         List<Perfil> findByEstaAtivoTrue();

@@ -53,6 +53,9 @@ public class AuthService {
             return empresaSchemaService.login(request);
         }
 
+        if (perfilRepository.findByEmail(request.email()).isPresent()) {
+            return loginPerfil(request);
+        }
         Optional<Usuario> usuarioEncontrado = usuarioRepository.findByEmail(request.email());
         if (usuarioEncontrado.isEmpty()) {
             return loginPerfil(request);
@@ -118,7 +121,11 @@ public class AuthService {
     public String solicitarRedefinicaoSenha(String email) {
         String token = gerarTokenSeguro();
         LocalDateTime expiracao = LocalDateTime.now().plusMinutes(30);
-        Optional<Usuario> usuarioEncontrado = usuarioRepository.findByEmail(email);
+        Optional<Perfil> perfilEncontrado = perfilRepository.findByEmailIgnoreCase(email);
+        Optional<Usuario> usuarioEncontrado =
+                perfilEncontrado.isPresent()
+                        ? Optional.empty()
+                        : usuarioRepository.findByEmail(email);
         if (usuarioEncontrado.isPresent()) {
             Usuario usuario = usuarioEncontrado.get();
             usuario.setTokenRedefinicao(token);
@@ -126,10 +133,8 @@ public class AuthService {
             usuarioRepository.save(usuario);
         } else {
             Perfil perfil =
-                    perfilRepository
-                            .findByEmail(email)
-                            .orElseThrow(
-                                    () -> new RegraDeNegocioException("E-mail não encontrado."));
+                    perfilEncontrado.or(() -> perfilRepository.findByEmail(email)).orElseThrow(
+                            () -> new RegraDeNegocioException("E-mail não encontrado."));
             perfil.setTokenRedefinicao(token);
             perfil.setTokenExpiracao(expiracao);
             perfilRepository.save(perfil);
@@ -143,7 +148,11 @@ public class AuthService {
         if (novaSenha.getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new RegraDeNegocioException("Senha deve ter até 72 bytes.");
         }
-        Optional<Usuario> usuarioEncontrado = usuarioRepository.findByTokenRedefinicao(token);
+        Optional<Perfil> perfilEncontrado = perfilRepository.findByTokenRedefinicao(token);
+        Optional<Usuario> usuarioEncontrado =
+                perfilEncontrado.isPresent()
+                        ? Optional.empty()
+                        : usuarioRepository.findByTokenRedefinicao(token);
         if (usuarioEncontrado.isPresent()) {
             Usuario usuario = usuarioEncontrado.get();
             validarExpiracao(usuario.getTokenExpiracao());
@@ -153,12 +162,8 @@ public class AuthService {
             usuarioRepository.save(usuario);
         } else {
             Perfil perfil =
-                    perfilRepository
-                            .findByTokenRedefinicao(token)
-                            .orElseThrow(
-                                    () ->
-                                            new RegraDeNegocioException(
-                                                    "Token inválido ou expirado."));
+                    perfilEncontrado.orElseThrow(
+                            () -> new RegraDeNegocioException("Token inválido ou expirado."));
             validarExpiracao(perfil.getTokenExpiracao());
             perfil.setSenhaHash(passwordEncoder.encode(novaSenha));
             perfil.setTokenRedefinicao(null);
