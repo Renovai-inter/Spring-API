@@ -18,6 +18,11 @@ public class FunctionEProceduresController {
 
     private final FunctionEProceduresService service;
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<java.util.Map<String,Object>> erro(org.springframework.web.server.ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(java.util.Map.of("status",e.getStatusCode().value(),"mensagem",e.getReason() == null ? "Operação não permitida." : e.getReason()));
+    }
+
     @GetMapping("/avaliacoes/media/{perfilId}")
     public ResponseEntity<Responses.MediaAvaliacoesResponse> calcularMediaAvaliacoes(
             @PathVariable UUID perfilId
@@ -121,6 +126,7 @@ public class FunctionEProceduresController {
 
 
     @PostMapping("/pedidos/aceitar")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN_SITE','ADMIN_COOPERATIVA','GESTOR_COOPERATIVA')")
     public ResponseEntity<Responses.ProcedureResponse> aceitarPedidoCooperativa(
             @RequestBody @Valid Requests.AceitarPedidoCooperativaRequest request
     ) {

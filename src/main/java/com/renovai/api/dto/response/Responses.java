@@ -290,7 +290,8 @@ public class Responses {
         BigDecimal valorTotal,
         LocalDateTime dataInicio,
         LocalDateTime dataFechamento,
-        List<NegociacaoItemResponse> itens
+        List<NegociacaoItemResponse> itens,
+        String observacao
     ) {}
     
     public record NegociacaoItemResponse(

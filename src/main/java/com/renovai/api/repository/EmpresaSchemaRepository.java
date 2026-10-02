@@ -55,7 +55,12 @@ select p.pedido_id,p.empresa_id,e.nome,p.data_pedido,p.data_conclusao,p.observac
 pedidos_cooperativas pc join status s on s.status_id=pc.status_id where pc.pedido_id=p.pedido_id
 order by case when lower(s.status_atual) in ('aceito','finalizado','concluído','concluido') then 0
 when lower(s.status_atual) in ('recusado','cancelado') then 2 else 1 end,pc.pedido_cooperativa_id
-limit 1) status_atual,coalesce((select sum(i.quantidade_kg*coalesce(i.preco_unitario,0)) from pedido_itens
+limit 1) status_atual,coalesce((select sum(coalesce(n.valor_total,
+(select sum(i.quantidade_kg*i.preco_unitario) from pedido_itens i where i.pedido_id=p.pedido_id)))
+from pedidos_cooperativas pc join status s on s.status_id=pc.status_id
+left join negociacoes n on n.pedido_id=pc.pedido_id and n.cooperativa_id=pc.cooperativa_id
+where pc.pedido_id=p.pedido_id and lower(s.status_atual) in ('aceito','finalizado','concluído','concluido')),
+(select sum(i.quantidade_kg*coalesce(i.preco_unitario,0)) from pedido_itens
 i where i.pedido_id=p.pedido_id),0) valor_total from pedidos p join empresas e on
 e.empresa_id=p.empresa_id
 """;
@@ -395,6 +400,27 @@ esta_disponivel=true)
     public int limparInteresses(UUID empresaId) {
         return jdbcTemplate.update(
                 "delete from empresa_materiais_interesses where empresa_id=?", empresaId);
+    }
+
+    public int removerInteresse(UUID empresaId, UUID categoriaId) {
+        return jdbcTemplate.update("delete from empresa_materiais_interesses where empresa_id=? and categoria_id=?", empresaId, categoriaId);
+    }
+
+    public List<com.renovai.api.dto.response.Responses.FavoritoResponse> listarFavoritos(UUID empresaId) {
+        return jdbcTemplate.query("""
+            select f.favorito_id,f.cooperativa_id,c.nome,c.imagem_url,f.data_criacao
+            from empresa_cooperativas_favoritas f join cooperativas c on c.cooperativa_id=f.cooperativa_id
+            where f.empresa_id=? order by f.data_criacao,f.favorito_id
+            """, (r,n) -> new com.renovai.api.dto.response.Responses.FavoritoResponse(
+                uuid(r,"favorito_id"),empresaId,uuid(r,"cooperativa_id"),r.getString("nome"),r.getString("imagem_url"),data(r,"data_criacao")), empresaId);
+    }
+
+    public int adicionarFavorito(UUID empresaId, UUID cooperativaId) {
+        return jdbcTemplate.update("insert into empresa_cooperativas_favoritas(empresa_id,cooperativa_id) values(?,?) on conflict (empresa_id,cooperativa_id) do nothing", empresaId, cooperativaId);
+    }
+
+    public int removerFavorito(UUID empresaId, UUID cooperativaId) {
+        return jdbcTemplate.update("delete from empresa_cooperativas_favoritas where empresa_id=? and cooperativa_id=?", empresaId, cooperativaId);
     }
 
     public List<com.renovai.api.dto.response.EmpresaContaResponses.Interesse> listarInteresses(

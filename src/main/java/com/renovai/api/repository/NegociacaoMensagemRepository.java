@@ -9,6 +9,8 @@ import java.util.UUID;
 @Repository
 public interface NegociacaoMensagemRepository extends JpaRepository<NegociacaoMensagem, UUID> {
 
+    java.util.Optional<NegociacaoMensagem> findFirstByNegociacao_NegociacaoIdAndTipoMensagemOrderByDataEnvioDescMensagemIdDesc(UUID negociacaoId, String tipoMensagem);
+
     List<NegociacaoMensagem> findByNegociacao_NegociacaoIdOrderByDataEnvioAsc(UUID negociacaoId);
 
     List<NegociacaoMensagem> findByNegociacao_NegociacaoIdAndTipoMensagem(UUID negociacaoId, String tipoMensagem);

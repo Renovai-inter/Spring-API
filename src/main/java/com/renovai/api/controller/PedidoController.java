@@ -93,6 +93,7 @@ public class PedidoController {
     }
  
     @PutMapping("/cooperativa/{id}/status/{statusId}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN_SITE','ADMIN_COOPERATIVA','GESTOR_COOPERATIVA')")
     @Operation(summary = "Atualizar status do pedido na cooperativa")
     public ResponseEntity<PedidoCooperativaResponse> atualizarStatus(
             @PathVariable UUID id, @PathVariable UUID statusId) {

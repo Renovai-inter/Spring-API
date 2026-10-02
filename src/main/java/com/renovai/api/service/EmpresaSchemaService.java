@@ -217,6 +217,7 @@ public class EmpresaSchemaService {
 
     public Interesse interesse(String email, UUID categoriaId) {
         MeuPerfil perfil = meuPerfil(email);
+        repository.bloquearEmpresa(perfil.empresaId());
         if (categoriaId == null) {
             repository.limparInteresses(perfil.empresaId());
             return new Interesse(perfil.empresaId(), null, null);
@@ -232,6 +233,47 @@ public class EmpresaSchemaService {
     @Transactional(readOnly = true)
     public List<Interesse> interesses(String email) {
         return repository.listarInteresses(meuPerfil(email).empresaId());
+    }
+
+    public List<Interesse> substituirInteresses(String email, List<UUID> categoriaIds) {
+        UUID empresaId = meuPerfil(email).empresaId();
+        repository.bloquearEmpresa(empresaId);
+        List<UUID> categorias = categoriaIds.stream().distinct().toList();
+        for (UUID categoriaId : categorias) {
+            if (repository.buscarCategoria(categoriaId).isEmpty()) {
+                throw new RegraDeNegocioException("Categoria não encontrada.");
+            }
+        }
+        repository.limparInteresses(empresaId);
+        categorias.forEach(categoriaId -> repository.inserirInteresse(empresaId, categoriaId));
+        return repository.listarInteresses(empresaId);
+    }
+
+    public void removerInteresse(String email, UUID categoriaId) {
+        UUID empresaId = meuPerfil(email).empresaId();
+        repository.bloquearEmpresa(empresaId);
+        repository.removerInteresse(empresaId, categoriaId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.renovai.api.dto.response.Responses.FavoritoResponse> favoritos(String email) {
+        return repository.listarFavoritos(meuPerfil(email).empresaId());
+    }
+
+    public com.renovai.api.dto.response.Responses.FavoritoResponse favoritar(String email, UUID cooperativaId) {
+        UUID empresaId = meuPerfil(email).empresaId();
+        repository.bloquearEmpresa(empresaId);
+        if (!Boolean.TRUE.equals(repository.existeCooperativa(cooperativaId))) {
+            throw new RegraDeNegocioException("Cooperativa não encontrada.");
+        }
+        repository.adicionarFavorito(empresaId, cooperativaId);
+        return repository.listarFavoritos(empresaId).stream().filter(f -> cooperativaId.equals(f.cooperativaId())).findFirst().orElseThrow();
+    }
+
+    public void desfavoritar(String email, UUID cooperativaId) {
+        UUID empresaId = meuPerfil(email).empresaId();
+        repository.bloquearEmpresa(empresaId);
+        repository.removerFavorito(empresaId, cooperativaId);
     }
 
     @Transactional(readOnly = true)

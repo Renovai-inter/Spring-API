@@ -14,6 +14,7 @@ import java.util.UUID;
 public class FunctionEProceduresService {
 
     private final FunctionEProceduresRepository repository;
+    private final NegociacaoFluxoService negociacaoFluxo;
 
     @Transactional(readOnly = true)
     public BigDecimal calcularMediaAvaliacoes(UUID perfilId) {
@@ -109,10 +110,12 @@ public class FunctionEProceduresService {
             UUID negociacaoId,
             Boolean aceito
     ) {
-        repository.fecharNegociacao(
-                negociacaoId,
-                aceito
-        );
+        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        if (Boolean.TRUE.equals(aceito)) {
+            negociacaoFluxo.aceitar(negociacaoId, email);
+        } else {
+            negociacaoFluxo.recusar(negociacaoId, email, "Negociação recusada.");
+        }
     }
 
     @Transactional

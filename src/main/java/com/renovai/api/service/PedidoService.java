@@ -122,6 +122,9 @@ public class PedidoService {
     }
  
     public PedidoCooperativaResponse atualizarStatusPedidoCooperativa(UUID id, UUID novoStatusId) {
+        if (pedidoCooperativaRepository.existeNegociacao(id)) {
+            throw new com.renovai.api.exception.RegraDeNegocioException("Use aceitar, recusar ou concluir da negociação para atualizar este pedido.");
+        }
         PedidoCooperativa pc = pedidoCooperativaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("PedidoCooperativa", id));
         Status status = statusRepository.findById(novoStatusId)

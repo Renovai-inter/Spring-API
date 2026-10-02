@@ -24,9 +24,12 @@ import org.springframework.web.bind.annotation.*;
  
 import java.util.List;
 import java.util.UUID;
+import java.security.Principal;
+import com.renovai.api.service.NegociacaoFluxoService;
+import org.springframework.security.access.prepost.PreAuthorize;
  
 @RestController
-@RequestMapping("/negociacoes")
+@RequestMapping({"/negociacoes", "/empresas-conta/negociacoes"})
 @Tag(name = "Negociações", description = "Negociações entre empresas e cooperativas — tela 4.5.1 e 5.4.1")
 @Transactional
 public class NegociacaoController {
@@ -40,6 +43,12 @@ public class NegociacaoController {
     private final StatusRepository statusRepository;
     private final MaterialRepository materialRepository;
     private final PerfilRepository perfilRepository;
+    private final NegociacaoFluxoService fluxo;
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<java.util.Map<String,Object>> erro(org.springframework.web.server.ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(java.util.Map.of("status", e.getStatusCode().value(), "mensagem", e.getReason() == null ? "Operação não permitida." : e.getReason()));
+    }
  
     public NegociacaoController(NegociacaoRepository repository,
                                  NegociacaoItemRepository itemRepository,
@@ -49,7 +58,7 @@ public class NegociacaoController {
                                  EmpresaRepository empresaRepository,
                                  StatusRepository statusRepository,
                                  MaterialRepository materialRepository,
-                                 PerfilRepository perfilRepository) {
+                                 PerfilRepository perfilRepository, NegociacaoFluxoService fluxo) {
         this.repository = repository;
         this.itemRepository = itemRepository;
         this.mensagemRepository = mensagemRepository;
@@ -59,49 +68,59 @@ public class NegociacaoController {
         this.statusRepository = statusRepository;
         this.materialRepository = materialRepository;
         this.perfilRepository = perfilRepository;
+        this.fluxo = fluxo;
     }
  
+    @GetMapping
+    @PreAuthorize("hasRole('GESTOR_EMPRESA')")
+    public ResponseEntity<List<NegociacaoResponse>> minhasNegociacoes(Principal principal) {
+        Perfil perfil = perfilRepository.findByEmailIgnoreCase(principal.getName()).filter(p -> Boolean.TRUE.equals(p.getEstaAtivo()) && p.getEmpresa() != null)
+                .orElseThrow(() -> new RegraDeNegocioException("Conta da Empresa não encontrada."));
+        return ResponseEntity.ok(repository.findByEmpresa_EmpresaId(perfil.getEmpresa().getEmpresaId()).stream().map(this::toResponse).toList());
+    }
+
     @GetMapping("/por-cooperativa/{cooperativaId}")
     @Operation(summary = "Listar negociações da cooperativa — tela 4.5")
-    public ResponseEntity<List<NegociacaoResponse>> listarPorCooperativa(@PathVariable UUID cooperativaId) {
+    public ResponseEntity<List<NegociacaoResponse>> listarPorCooperativa(@PathVariable UUID cooperativaId, Principal principal) {
         return ResponseEntity.ok(repository.findByCooperativa_CooperativaId(cooperativaId)
-                .stream().map(this::toResponse).toList());
+                .stream().peek(n -> fluxo.participante(n, principal.getName())).map(this::toResponse).toList());
     }
  
     @GetMapping("/por-empresa/{empresaId}")
     @Operation(summary = "Listar negociações da empresa — tela 5.4")
-    public ResponseEntity<List<NegociacaoResponse>> listarPorEmpresa(@PathVariable UUID empresaId) {
+    public ResponseEntity<List<NegociacaoResponse>> listarPorEmpresa(@PathVariable UUID empresaId, Principal principal) {
         return ResponseEntity.ok(repository.findByEmpresa_EmpresaId(empresaId)
-                .stream().map(this::toResponse).toList());
+                .stream().peek(n -> fluxo.participante(n, principal.getName())).map(this::toResponse).toList());
     }
  
     @GetMapping("/por-pedido/{pedidoId}")
     @Operation(summary = "Listar negociações de um pedido")
-    public ResponseEntity<List<NegociacaoResponse>> listarPorPedido(@PathVariable UUID pedidoId) {
+    public ResponseEntity<List<NegociacaoResponse>> listarPorPedido(@PathVariable UUID pedidoId, Principal principal) {
         return ResponseEntity.ok(repository.findByPedido_PedidoId(pedidoId)
-                .stream().map(this::toResponse).toList());
+                .stream().peek(n -> fluxo.participante(n, principal.getName())).map(this::toResponse).toList());
     }
  
     @GetMapping("/por-cooperativa/{cooperativaId}/status/{statusAtual}")
     @Operation(summary = "Listar negociações da cooperativa por status")
     public ResponseEntity<List<NegociacaoResponse>> listarPorCooperativaEStatus(
-            @PathVariable UUID cooperativaId, @PathVariable String statusAtual) {
+            @PathVariable UUID cooperativaId, @PathVariable String statusAtual, Principal principal) {
         return ResponseEntity.ok(repository
                 .findByCooperativa_CooperativaIdAndStatus_StatusAtual(cooperativaId, statusAtual)
-                .stream().map(this::toResponse).toList());
+                .stream().peek(n -> fluxo.participante(n, principal.getName())).map(this::toResponse).toList());
     }
  
     @GetMapping("/{id}")
     @Operation(summary = "Buscar negociação por ID — tela 4.5.1")
-    public ResponseEntity<NegociacaoResponse> buscarPorId(@PathVariable UUID id) {
+    public ResponseEntity<NegociacaoResponse> buscarPorId(@PathVariable UUID id, Principal principal) {
         Negociacao n = repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Negociacao", id));
+        fluxo.participante(n, principal.getName());
         return ResponseEntity.ok(toResponse(n));
     }
  
     @PostMapping
     @Operation(summary = "Abrir negociação")
-    public ResponseEntity<NegociacaoResponse> criar(@RequestBody @Valid NegociacaoRequest request) {
+    public ResponseEntity<NegociacaoResponse> criar(@RequestBody @Valid NegociacaoRequest request, Principal principal) {
         Pedido pedido = pedidoRepository.findById(request.pedidoId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Pedido", request.pedidoId()));
         Cooperativa cooperativa = cooperativaRepository.findById(request.cooperativaId())
@@ -116,23 +135,34 @@ public class NegociacaoController {
         negociacao.setEmpresa(empresa);
         negociacao.setStatus(status);
         negociacao.setValorTotal(request.valorTotal());
+        if (!pedido.getEmpresa().getEmpresaId().equals(empresa.getEmpresaId()))
+            throw new RegraDeNegocioException("A Empresa não pertence ao pedido.");
+        fluxo.participante(negociacao, principal.getName());
+        fluxo.validarAbertura(negociacao);
+        if (!status.getStatusId().equals(fluxo.status("NEGOCIACAO", "Em andamento", "EM_NEGOCIACAO").getStatusId()))
+            throw new RegraDeNegocioException("Uma negociação deve iniciar em andamento.");
+        fluxo.sincronizarVinculo(negociacao, fluxo.status("PEDIDO", "Em negociação", "EM_NEGOCIACAO"));
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(repository.save(negociacao)));
     }
  
     @PostMapping("/{id}/contraproposta")
+    @PreAuthorize("hasAnyRole('GESTOR_COOPERATIVA','ADMIN_COOPERATIVA')")
     @Operation(summary = "Enviar contraproposta — tela 4.5.1")
     public ResponseEntity<NegociacaoResponse> contraproposta(
             @PathVariable UUID id,
-            @RequestBody @Valid ContrapropostaRequest request) {
-        Negociacao n = repository.findById(id)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Negociacao", id));
-        Status emNegociacao = statusRepository
-                .findByReferenciaAndStatusAtual("NEGOCIACAO", "EM_NEGOCIACAO")
-                .orElseThrow(() -> new RegraDeNegocioException("Status EM_NEGOCIACAO não encontrado."));
+            @RequestBody @Valid ContrapropostaRequest request, Principal principal) {
+        Negociacao n = fluxo.bloquear(id);
+        fluxo.exigirGestor(n, principal.getName());
+        fluxo.exigirAberta(n);
+        if (!id.equals(request.negociacaoId())) throw new RegraDeNegocioException("ID da negociação divergente.");
+        Status emNegociacao = fluxo.status("NEGOCIACAO", "Em andamento", "EM_NEGOCIACAO");
         n.setStatus(emNegociacao);
         if (request.valorTotal() != null) n.setValorTotal(request.valorTotal());
         if (request.itens() != null) {
+            if (request.itens().isEmpty() || request.itens().stream().map(NegociacaoItemRequest::materialId).distinct().count() != request.itens().size())
+                throw new RegraDeNegocioException("Informe itens sem materiais repetidos.");
             itemRepository.deleteByNegociacao_NegociacaoId(id);
+            itemRepository.flush();
             for (NegociacaoItemRequest ir : request.itens()) {
                 Material material = materialRepository.findById(ir.materialId())
                         .orElseThrow(() -> new RecursoNaoEncontradoException("Material", ir.materialId()));
@@ -144,42 +174,42 @@ public class NegociacaoController {
                 itemRepository.save(item);
             }
         }
-        return ResponseEntity.ok(toResponse(repository.save(n)));
+        var itens = itemRepository.findByNegociacao_NegociacaoId(id);
+        if (!itens.isEmpty()) {
+            java.math.BigDecimal total = itens.stream().map(i -> i.getQuantidadeKg().multiply(i.getPrecoUnitario()).setScale(2, java.math.RoundingMode.HALF_UP)).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+            if (request.valorTotal() == null && request.itens() != null) n.setValorTotal(total);
+        }
+        repository.saveAndFlush(n);
+        fluxo.sincronizarVinculo(n, fluxo.status("PEDIDO", "Em negociação", "EM_NEGOCIACAO"));
+        fluxo.registrarObservacao(n, principal.getName(), request.observacao(), "CONTRAPROPOSTA");
+        return ResponseEntity.ok(toResponse(n));
     }
  
+    @PatchMapping("/{id}/aceitar")
+    @PreAuthorize("hasRole('GESTOR_EMPRESA')")
+    @Operation(summary = "Empresa aceita a contraproposta; conclusão permanece com o gestor")
+    public ResponseEntity<NegociacaoResponse> aceitar(@PathVariable UUID id, Principal principal) {
+        return ResponseEntity.ok(toResponse(fluxo.aceitar(id, principal.getName())));
+    }
+
     @PatchMapping("/{id}/recusar")
-    @Operation(summary = "Recusar negociação — tela 5.4.1")
-    public ResponseEntity<NegociacaoResponse> recusar(
-            @PathVariable UUID id,
-            @RequestBody @Valid RecusarNegociacaoRequest request) {
-        Negociacao n = repository.findById(id)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Negociacao", id));
-        Status recusado = statusRepository
-                .findByReferenciaAndStatusAtual("NEGOCIACAO", "RECUSADO")
-                .orElseThrow(() -> new RegraDeNegocioException("Status RECUSADO não encontrado."));
-        n.setStatus(recusado);
-        return ResponseEntity.ok(toResponse(repository.save(n)));
+    public ResponseEntity<NegociacaoResponse> recusar(@PathVariable UUID id,
+            @RequestBody @Valid RecusarNegociacaoRequest request, Principal principal) {
+        return ResponseEntity.ok(toResponse(fluxo.recusar(id, principal.getName(), request.justificativa())));
     }
- 
-    @PatchMapping("/{id}/fechar")
-    @Operation(summary = "Fechar negociação com valor final — tela 4.5.1")
-    public ResponseEntity<NegociacaoResponse> fechar(
-            @PathVariable UUID id,
-            @RequestBody @Valid FecharNegociacaoRequest request) {
-        Negociacao n = repository.findById(id)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Negociacao", id));
-        Status concluido = statusRepository
-                .findByReferenciaAndStatusAtual("NEGOCIACAO", "CONCLUIDO")
-                .orElseThrow(() -> new RegraDeNegocioException("Status CONCLUIDO não encontrado."));
-        n.setStatus(concluido);
-        n.setValorTotal(request.valorFinal());
-        n.setDataFechamento(java.time.LocalDateTime.now());
-        return ResponseEntity.ok(toResponse(repository.save(n)));
+
+    @PatchMapping({"/{id}/fechar", "/{id}/concluir"})
+    @PreAuthorize("hasAnyRole('GESTOR_COOPERATIVA','ADMIN_COOPERATIVA')")
+    @Operation(summary = "Gestor conclui um acordo já aceito pela Empresa")
+    public ResponseEntity<NegociacaoResponse> fechar(@PathVariable UUID id,
+            @RequestBody @Valid FecharNegociacaoRequest request, Principal principal) {
+        return ResponseEntity.ok(toResponse(fluxo.concluir(id, principal.getName(), request.valorFinal(), request.observacao())));
     }
- 
+
     @GetMapping("/{id}/mensagens")
     @Operation(summary = "Listar mensagens do chat da negociação — tela 4.5.1")
-    public ResponseEntity<List<NegociacaoMensagemResponse>> listarMensagens(@PathVariable UUID id) {
+    public ResponseEntity<List<NegociacaoMensagemResponse>> listarMensagens(@PathVariable UUID id, Principal principal) {
+        fluxo.participante(repository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Negociacao", id)), principal.getName());
         return ResponseEntity.ok(
                 mensagemRepository.findByNegociacao_NegociacaoIdOrderByDataEnvioAsc(id)
                         .stream().map(this::toMensagemResponse).toList()
@@ -190,11 +220,14 @@ public class NegociacaoController {
     @Operation(summary = "Enviar mensagem no chat da negociação — tela 4.5.1")
     public ResponseEntity<NegociacaoMensagemResponse> enviarMensagem(
             @PathVariable UUID id,
-            @RequestBody @Valid NegociacaoMensagemRequest request) {
+            @RequestBody @Valid NegociacaoMensagemRequest request, Principal principal) {
         Negociacao negociacao = repository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Negociacao", id));
-        Perfil remetente = perfilRepository.findById(request.remetenteId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Perfil", request.remetenteId()));
+        Perfil remetente = fluxo.participante(negociacao, principal.getName());
+        if (!id.equals(request.negociacaoId()) || !remetente.getPerfilId().equals(request.remetenteId()))
+            throw new RegraDeNegocioException("Remetente ou negociação divergente da conta autenticada.");
+        if (request.tipoMensagem() != null && !"TEXTO".equals(request.tipoMensagem()))
+            throw new RegraDeNegocioException("Use o endpoint de contraproposta para mensagens de proposta.");
         NegociacaoMensagem mensagem = new NegociacaoMensagem();
         mensagem.setNegociacao(negociacao);
         mensagem.setRemetente(remetente);
@@ -207,9 +240,10 @@ public class NegociacaoController {
     @PostMapping("/itens")
     @Operation(summary = "Adicionar item à negociação")
     public ResponseEntity<NegociacaoItemResponse> adicionarItem(
-            @RequestBody @Valid NegociacaoItemRequest request) {
-        Negociacao negociacao = repository.findById(request.negociacaoId())
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Negociacao", request.negociacaoId()));
+            @RequestBody @Valid NegociacaoItemRequest request, Principal principal) {
+        Negociacao negociacao = fluxo.bloquear(request.negociacaoId());
+        fluxo.exigirGestor(negociacao,principal.getName());
+        fluxo.exigirAberta(negociacao);
         Material material = materialRepository.findById(request.materialId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Material", request.materialId()));
         NegociacaoItem item = new NegociacaoItem();
@@ -217,7 +251,13 @@ public class NegociacaoController {
         item.setMaterial(material);
         item.setQuantidadeKg(request.quantidadeKg());
         item.setPrecoUnitario(request.precoUnitario());
-        return ResponseEntity.status(HttpStatus.CREATED).body(toItemResponse(itemRepository.save(item)));
+        itemRepository.saveAndFlush(item);
+        var total = itemRepository.findByNegociacao_NegociacaoId(negociacao.getNegociacaoId()).stream()
+                .map(i -> i.getQuantidadeKg().multiply(i.getPrecoUnitario()).setScale(2, java.math.RoundingMode.HALF_UP))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        negociacao.setValorTotal(total);
+        repository.save(negociacao);
+        return ResponseEntity.status(HttpStatus.CREATED).body(toItemResponse(item));
     }
  
     private NegociacaoResponse toResponse(Negociacao n) {
@@ -235,7 +275,9 @@ public class NegociacaoController {
                 n.getValorTotal(),
                 n.getDataInicio(),
                 n.getDataFechamento(),
-                itens
+                itens,
+                mensagemRepository.findFirstByNegociacao_NegociacaoIdAndTipoMensagemOrderByDataEnvioDescMensagemIdDesc(n.getNegociacaoId(), "CONTRAPROPOSTA")
+                        .map(NegociacaoMensagem::getMensagem).filter(m -> !m.isEmpty()).orElse(null)
         );
     }
  

@@ -116,6 +116,38 @@ public class EmpresaContaController {
         return ResponseEntity.noContent().build();
     }
 
+    @org.springframework.web.bind.annotation.PutMapping("/empresas-conta/interesse")
+    @PreAuthorize("hasRole('GESTOR_EMPRESA')")
+    public List<Interesse> substituirInteresses(Principal p, @RequestBody @Valid com.renovai.api.dto.request.EmpresaContaRequests.SubstituirInteresses body) {
+        return service.substituirInteresses(p.getName(), body.categoriaIds());
+    }
+
+    @DeleteMapping("/empresas-conta/interesse/{categoriaId}")
+    @PreAuthorize("hasRole('GESTOR_EMPRESA')")
+    public ResponseEntity<Void> removerInteresse(Principal p, @PathVariable UUID categoriaId) {
+        service.removerInteresse(p.getName(), categoriaId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/empresas-conta/favoritos")
+    @PreAuthorize("hasRole('GESTOR_EMPRESA')")
+    public List<com.renovai.api.dto.response.Responses.FavoritoResponse> favoritos(Principal p) {
+        return service.favoritos(p.getName());
+    }
+
+    @PostMapping("/empresas-conta/favoritos")
+    @PreAuthorize("hasRole('GESTOR_EMPRESA')")
+    public com.renovai.api.dto.response.Responses.FavoritoResponse favoritar(Principal p, @RequestBody @Valid com.renovai.api.dto.request.EmpresaContaRequests.FavoritoContaRequest body) {
+        return service.favoritar(p.getName(), body.cooperativaId());
+    }
+
+    @DeleteMapping("/empresas-conta/favoritos/{cooperativaId}")
+    @PreAuthorize("hasRole('GESTOR_EMPRESA')")
+    public ResponseEntity<Void> desfavoritar(Principal p, @PathVariable UUID cooperativaId) {
+        service.desfavoritar(p.getName(), cooperativaId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/empresas-conta/materiais")
     @PreAuthorize("hasRole('GESTOR_EMPRESA')")
     public List<MaterialResponse> materiais() {
