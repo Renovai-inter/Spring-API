@@ -27,7 +27,7 @@ import java.util.UUID;
 public class EmpresaSchemaRepository {
     private final JdbcTemplate jdbcTemplate;
 
-    public record CredencialEmpresa(UUID usuarioId, String senhaHash) {}
+    public record CredencialEmpresa(UUID perfilId, String senhaHash) {}
 
     public EmpresaSchemaRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -36,11 +36,10 @@ public class EmpresaSchemaRepository {
     private static final String PERFIL =
 """
 select
-p.perfil_id,p.empresa_id,p.email,p.cnpj,p.endereco_id,e.nome,e.descricao,e.material_id,en.logradouro,en.cidade,m.categoria_id,cat.nome_categoria,
+p.perfil_id,p.empresa_id,p.email,p.cnpj,p.endereco_id,e.nome,e.descricao,en.logradouro,en.cidade,
 (select concat_ws('',t.ddd,t.telefone) from telefones t where t.perfil_id=p.perfil_id order by
 t.telefone_id limit 1) telefone from perfis p join empresas e on e.empresa_id=p.empresa_id left join
-enderecos en on en.endereco_id=p.endereco_id left join materiais m on m.material_id=e.material_id
-left join categorias_materiais cat on cat.categoria_id=m.categoria_id where lower(p.email)=lower(?)
+enderecos en on en.endereco_id=p.endereco_id where lower(p.email)=lower(?)
 and p.esta_ativo=true
 """;
     private static final String COOP =
@@ -52,11 +51,11 @@ cidade from cooperativas c
 """;
     private static final String PEDIDOS =
 """
-select p.pedido_id,p.empresa_id,e.nome,p.data_pedido,p.data_conclusao,(select s.status_atual from
+select p.pedido_id,p.empresa_id,e.nome,p.data_pedido,p.data_conclusao,p.observacao,(select s.status_atual from
 pedidos_cooperativas pc join status s on s.status_id=pc.status_id where pc.pedido_id=p.pedido_id
 order by case when lower(s.status_atual) in ('aceito','finalizado','concluído','concluido') then 0
 when lower(s.status_atual) in ('recusado','cancelado') then 2 else 1 end,pc.pedido_cooperativa_id
-limit 1) status_atual,coalesce((select sum(i.quantidade_kg*coalesce(i.preco_unitario,0)) from itens
+limit 1) status_atual,coalesce((select sum(i.quantidade_kg*coalesce(i.preco_unitario,0)) from pedido_itens
 i where i.pedido_id=p.pedido_id),0) valor_total from pedidos p join empresas e on
 e.empresa_id=p.empresa_id
 """;
@@ -79,9 +78,9 @@ on e.empresa_id=pa.empresa_id join perfis pv on pv.perfil_id=a.avaliado_id
                             r.getString("logradouro"),
                             r.getString("telefone"),
                             r.getString("cidade"),
-                            uuid(r, "material_id"),
-                            uuid(r, "categoria_id"),
-                            r.getString("nome_categoria"));
+                            null,
+                            null,
+                            null);
 
     private final RowMapper<PedidoResponse> pedidoMapper =
             (r, n) ->
@@ -93,7 +92,7 @@ on e.empresa_id=pa.empresa_id join perfis pv on pv.perfil_id=a.avaliado_id
                             data(r, "data_conclusao"),
                             r.getString("status_atual"),
                             r.getBigDecimal("valor_total"),
-                            null);
+                            r.getString("observacao"));
 
     private final RowMapper<AvaliacaoPublica> avaliacaoMapper =
             (r, n) ->
@@ -128,7 +127,7 @@ select exists(select 1 from perfis where lower(email)=lower(?) and empresa_id is
     public List<String> buscarHashesPorEmail(String email) {
         return jdbcTemplate.query(
 """
-select senha_hash from usuarios where lower(email)=lower(?)
+select senha_hash from perfis where lower(email)=lower(?) and empresa_id is not null and esta_ativo=true
 """,
                 (r, n) -> r.getString(1),
                 email);
@@ -137,10 +136,10 @@ select senha_hash from usuarios where lower(email)=lower(?)
     public List<CredencialEmpresa> buscarCredenciaisPorEmail(String email) {
         return jdbcTemplate.query(
                 """
-                select usuario_id, senha_hash from usuarios where lower(email) = lower(?)
+                select perfil_id, senha_hash from perfis where lower(email) = lower(?) and empresa_id is not null and esta_ativo=true
                 """,
                 (rs, rowNum) ->
-                        new CredencialEmpresa(uuid(rs, "usuario_id"), rs.getString("senha_hash")),
+                        new CredencialEmpresa(uuid(rs, "perfil_id"), rs.getString("senha_hash")),
                 email);
     }
 
@@ -177,14 +176,13 @@ insert into usuarios(usuario_id,nome,email,cpf,senha_hash) values(?,?,?,?,?)
                 senhaHash);
     }
 
-    public int inserirEmpresa(UUID empresaId, String nome, UUID materialId) {
+    public int inserirEmpresa(UUID empresaId, String nome) {
         return jdbcTemplate.update(
 """
-insert into empresas(empresa_id,nome,material_id) values(?,?,?)
+insert into empresas(empresa_id,nome) values(?,?)
 """,
                 empresaId,
-                nome,
-                materialId);
+                nome);
     }
 
     public int inserirEndereco(UUID enderecoId, String logradouro) {
@@ -197,16 +195,22 @@ insert into enderecos(endereco_id,logradouro) values(?,?)
     }
 
     public int inserirPerfil(
-            UUID perfilId, UUID empresaId, UUID enderecoId, String email, String cnpj) {
+            UUID perfilId,
+            UUID empresaId,
+            UUID enderecoId,
+            String email,
+            String cnpj,
+            String senhaHash) {
         return jdbcTemplate.update(
 """
-insert into perfis(perfil_id,empresa_id,endereco_id,email,cnpj) values(?,?,?,?,?)
+insert into perfis(perfil_id,empresa_id,endereco_id,email,cnpj,senha_hash) values(?,?,?,?,?,?)
 """,
                 perfilId,
                 empresaId,
                 enderecoId,
                 email,
-                cnpj);
+                cnpj,
+                senhaHash);
     }
 
     public int inserirTelefone(UUID telefoneId, UUID perfilId, String telefone) {
@@ -344,7 +348,7 @@ update perfis set email=? where perfil_id=?
     public int atualizarSenha(String senhaHash, String email) {
         return jdbcTemplate.update(
 """
-update usuarios set senha_hash=?,senha=null where lower(email)=lower(?)
+update perfis set senha_hash=?,token_redefinicao=null,data_token_expiracao=null where lower(email)=lower(?) and empresa_id is not null and esta_ativo=true
 """,
                 senhaHash,
                 email);
@@ -378,13 +382,49 @@ esta_disponivel=true)
                 materialId);
     }
 
-    public int atualizarMaterialInteresse(UUID materialId, UUID empresaId) {
+    public int inserirInteresse(UUID empresaId, UUID categoriaId) {
         return jdbcTemplate.update(
-"""
-update empresas set material_id=? where empresa_id=?
-""",
-                materialId,
+                """
+                insert into empresa_materiais_interesses(empresa_material_id,empresa_id,categoria_id) values(gen_random_uuid(),?,?)
+                on conflict (empresa_id,categoria_id) do nothing
+                """,
+                empresaId,
+                categoriaId);
+    }
+
+    public int limparInteresses(UUID empresaId) {
+        return jdbcTemplate.update(
+                "delete from empresa_materiais_interesses where empresa_id=?", empresaId);
+    }
+
+    public List<com.renovai.api.dto.response.EmpresaContaResponses.Interesse> listarInteresses(
+            UUID empresaId) {
+        return jdbcTemplate.query(
+                """
+                select i.empresa_id,i.categoria_id,c.nome_categoria
+                from empresa_materiais_interesses i join categorias_materiais c on c.categoria_id=i.categoria_id
+                where i.empresa_id=? order by c.nome_categoria,i.categoria_id
+                """,
+                (r, n) ->
+                        new com.renovai.api.dto.response.EmpresaContaResponses.Interesse(
+                                uuid(r, "empresa_id"),
+                                uuid(r, "categoria_id"),
+                                r.getString("nome_categoria")),
                 empresaId);
+    }
+
+    public List<String> buscarCategoria(UUID categoriaId) {
+        return jdbcTemplate.query(
+                "select nome_categoria from categorias_materiais where categoria_id=?",
+                (r, n) -> r.getString(1),
+                categoriaId);
+    }
+
+    public List<UUID> buscarCategoriaMaterial(UUID materialId) {
+        return jdbcTemplate.query(
+                "select categoria_id from materiais where material_id=?",
+                (r, n) -> r.getObject(1, UUID.class),
+                materialId);
     }
 
     public List<CooperativaResponse> buscarCooperativas(
@@ -490,7 +530,7 @@ m.esta_disponivel=true and e.quantidade_kg>0 order by c.nome_categoria
     public List<ItemResponse> listarItensPedido(UUID pedidoId) {
         return jdbcTemplate.query(
 """
-select i.item_id,i.material_id,c.nome_categoria,i.quantidade_kg,i.preco_unitario from itens i join
+select i.item_id,i.material_id,c.nome_categoria,i.quantidade_kg,i.preco_unitario from pedido_itens i join
 materiais m on m.material_id=i.material_id join categorias_materiais c on
 c.categoria_id=m.categoria_id where i.pedido_id=? order by i.item_id
 """,
@@ -597,7 +637,7 @@ insert into pedidos(pedido_id,empresa_id) values(?,?)
             BigDecimal precoUnitario) {
         return jdbcTemplate.update(
 """
-insert into itens(item_id,pedido_id,material_id,quantidade_kg,preco_unitario) values(?,?,?,?,?)
+insert into pedido_itens(item_id,pedido_id,material_id,quantidade_kg,preco_unitario) values(?,?,?,?,?)
 """,
                 itemId,
                 pedidoId,

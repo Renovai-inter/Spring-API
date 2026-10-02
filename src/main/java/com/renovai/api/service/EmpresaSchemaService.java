@@ -76,7 +76,7 @@ public class EmpresaSchemaService {
                 tokenProvider.gerarToken(perfil.email(), ROLE_EMPRESA),
                 perfil.email(),
                 ROLE_EMPRESA,
-                credenciais.get(0).usuarioId());
+                credenciais.get(0).perfilId());
     }
 
     public CadastroResponse cadastrar(Cadastro request) {
@@ -101,15 +101,16 @@ public class EmpresaSchemaService {
                 empresaId = UUID.randomUUID(),
                 enderecoId = UUID.randomUUID(),
                 perfilId = UUID.randomUUID();
-        repository.inserirUsuario(
-                usuarioId,
-                request.nome().trim(),
-                email,
-                cpf,
-                passwordEncoder.encode(request.senha()));
-        repository.inserirEmpresa(empresaId, request.nomeEmpresa().trim(), request.materialId());
+        String senhaHash = passwordEncoder.encode(request.senha());
+        repository.inserirUsuario(usuarioId, request.nome().trim(), email, cpf, senhaHash);
+        repository.inserirEmpresa(empresaId, request.nomeEmpresa().trim());
+        if (request.materialId() != null) {
+            repository.inserirInteresse(
+                    empresaId, repository.buscarCategoriaMaterial(request.materialId()).get(0));
+        }
         repository.inserirEndereco(enderecoId, request.endereco().trim());
-        repository.inserirPerfil(perfilId, empresaId, enderecoId, email, formatarCnpj(cnpj));
+        repository.inserirPerfil(
+                perfilId, empresaId, enderecoId, email, formatarCnpj(cnpj), senhaHash);
         // chk_telefones_dono é XOR: somente perfil_id é preenchido.
         repository.inserirTelefone(UUID.randomUUID(), perfilId, request.telefone().trim());
         return new CadastroResponse(
@@ -180,11 +181,6 @@ public class EmpresaSchemaService {
                 if (Boolean.TRUE.equals(repository.existeEmail(novoEmail))) {
                     throw new RegraDeNegocioException("E-mail já cadastrado.");
                 }
-                int atualizados = repository.atualizarEmailUsuario(novoEmail, email);
-                if (atualizados != 1) {
-                    throw new RegraDeNegocioException(
-                            "Não foi possível identificar as credenciais da Empresa.");
-                }
                 repository.atualizarEmailPerfil(novoEmail, perfil.perfilId());
             }
         }
@@ -221,30 +217,21 @@ public class EmpresaSchemaService {
 
     public Interesse interesse(String email, UUID categoriaId) {
         MeuPerfil perfil = meuPerfil(email);
-        UUID materialId = null;
-        String categoriaNome = null;
-        if (categoriaId != null) {
-            List<MaterialResponse> materiaisDisponiveis =
-                    materiais().stream().filter(m -> categoriaId.equals(m.categoriaId())).toList();
-            if (materiaisDisponiveis.isEmpty()) {
-                throw new RegraDeNegocioException(
-                        "Não há material global disponível nesta categoria.");
-            }
-            materialId = materiaisDisponiveis.get(0).materialId();
-            categoriaNome = materiaisDisponiveis.get(0).categoriaNome();
+        if (categoriaId == null) {
+            repository.limparInteresses(perfil.empresaId());
+            return new Interesse(perfil.empresaId(), null, null);
         }
-        repository.atualizarMaterialInteresse(materialId, perfil.empresaId());
-        return new Interesse(perfil.empresaId(), categoriaId, categoriaNome);
+        List<String> categorias = repository.buscarCategoria(categoriaId);
+        if (categorias.isEmpty()) {
+            throw new RegraDeNegocioException("Categoria não encontrada.");
+        }
+        repository.inserirInteresse(perfil.empresaId(), categoriaId);
+        return new Interesse(perfil.empresaId(), categoriaId, categorias.get(0));
     }
 
     @Transactional(readOnly = true)
     public List<Interesse> interesses(String email) {
-        MeuPerfil perfil = meuPerfil(email);
-        return perfil.categoriaId() == null
-                ? List.of()
-                : List.of(
-                        new Interesse(
-                                perfil.empresaId(), perfil.categoriaId(), perfil.categoriaNome()));
+        return repository.listarInteresses(meuPerfil(email).empresaId());
     }
 
     @Transactional(readOnly = true)

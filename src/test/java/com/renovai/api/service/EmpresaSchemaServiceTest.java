@@ -73,11 +73,11 @@ class EmpresaSchemaServiceTest {
     void loginDaEmpresaGeraTokenQueOFiltroReconheceComUmaUnicaRole() throws Exception {
         prepararPerfil();
         when(repository.buscarCredenciaisPorEmail(EMAIL))
-                .thenReturn(List.of(new CredencialEmpresa(usuarioId, encoder.encode("senha123"))));
+                .thenReturn(List.of(new CredencialEmpresa(perfilId, encoder.encode("senha123"))));
 
         LoginResponse response = service.login(new LoginRequest(EMAIL, "senha123"));
 
-        assertThat(response.usuarioId()).isEqualTo(usuarioId);
+        assertThat(response.usuarioId()).isEqualTo(perfilId);
         assertThat(response.tipo()).isEqualTo("Bearer");
         assertThat(response.role()).isEqualTo("GESTOR_EMPRESA");
         assertThat(tokenProvider.extrairRole(response.token())).isEqualTo("GESTOR_EMPRESA");
@@ -100,7 +100,7 @@ class EmpresaSchemaServiceTest {
     void loginRejeitaSenhaIncorreta() {
         prepararPerfil();
         when(repository.buscarCredenciaisPorEmail(EMAIL))
-                .thenReturn(List.of(new CredencialEmpresa(usuarioId, encoder.encode("senha123"))));
+                .thenReturn(List.of(new CredencialEmpresa(perfilId, encoder.encode("senha123"))));
 
         assertThatThrownBy(() -> service.login(new LoginRequest(EMAIL, "outraSenha")))
                 .hasMessage("Credenciais inválidas.");
@@ -109,7 +109,7 @@ class EmpresaSchemaServiceTest {
     @Test
     void loginRejeitaCredenciaisAmbiguas() {
         prepararPerfil();
-        CredencialEmpresa credencial = new CredencialEmpresa(usuarioId, encoder.encode("senha123"));
+        CredencialEmpresa credencial = new CredencialEmpresa(perfilId, encoder.encode("senha123"));
         when(repository.buscarCredenciaisPorEmail(EMAIL))
                 .thenReturn(List.of(credencial, credencial));
 
@@ -147,7 +147,8 @@ class EmpresaSchemaServiceTest {
                         eq(response.empresaId()),
                         any(),
                         eq(EMAIL),
-                        eq("11.222.333/0001-81"));
+                        eq("11.222.333/0001-81"),
+                        eq(hashCaptor.getValue()));
         verify(repository).inserirTelefone(any(), any(), eq("11999999999"));
     }
 
@@ -214,7 +215,6 @@ class EmpresaSchemaServiceTest {
     void mudarEmailAtualizaAsCredenciaisEOPerfil() {
         prepararPerfil();
         String novoEmail = "novo@renovai.com";
-        when(repository.atualizarEmailUsuario(novoEmail, EMAIL)).thenReturn(1);
         MeuPerfil novoPerfil = perfil(novoEmail);
         when(repository.buscarPerfilPorEmail(novoEmail)).thenReturn(List.of(novoPerfil));
 
@@ -336,6 +336,27 @@ class EmpresaSchemaServiceTest {
         assertThat(response.valorTotalNegociado()).isEqualByComparingTo("70");
     }
 
+    @Test
+    void interessesSaoAdicionadosSemSubstituirOsAnteriores() {
+        prepararPerfil();
+        UUID categoria1 = UUID.randomUUID(), categoria2 = UUID.randomUUID();
+        when(repository.buscarCategoria(categoria1)).thenReturn(List.of("Papel"));
+        when(repository.buscarCategoria(categoria2)).thenReturn(List.of("Vidro"));
+        service.interesse(EMAIL, categoria1);
+        service.interesse(EMAIL, categoria2);
+        verify(repository).inserirInteresse(empresaId, categoria1);
+        verify(repository).inserirInteresse(empresaId, categoria2);
+        verify(repository, never()).limparInteresses(any());
+    }
+
+    @Test
+    void removerInteressesLimpaSomenteAEmpresaAutenticada() {
+        prepararPerfil();
+        service.interesse(EMAIL, null);
+        verify(repository).limparInteresses(empresaId);
+        verify(repository, never()).inserirInteresse(any(), any());
+    }
+
     private void prepararPerfil() {
         when(repository.buscarPerfilPorEmail(EMAIL)).thenReturn(List.of(perfil(EMAIL)));
     }
@@ -371,7 +392,7 @@ class EmpresaSchemaServiceTest {
 
     private void verificarNenhumCadastro() {
         verify(repository, never()).inserirUsuario(any(), any(), any(), any(), any());
-        verify(repository, never()).inserirEmpresa(any(), any(), any());
+        verify(repository, never()).inserirEmpresa(any(), any());
     }
 
     private void prepararEnvio() {
