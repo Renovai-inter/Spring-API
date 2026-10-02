@@ -41,6 +41,10 @@ public class EmpresaContaRequests {
 
     public record InteresseRequest(UUID categoriaId) {}
 
+    public record SubstituirInteresses(@NotNull @Size(max = 100) List<@NotNull UUID> categoriaIds) {}
+
+    public record FavoritoContaRequest(@NotNull UUID cooperativaId) {}
+
     public record PedidoItem(
             @NotNull UUID materialId,
             @NotNull @DecimalMin("0.001") @Digits(integer = 7, fraction = 3)

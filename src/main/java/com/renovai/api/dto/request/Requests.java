@@ -1,6 +1,7 @@
 package com.renovai.api.dto.request;
 
 import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -351,8 +352,8 @@ public class Requests {
     public record NegociacaoItemRequest(
         @NotNull UUID negociacaoId,
         @NotNull UUID materialId,
-        @NotNull @DecimalMin("0.001") BigDecimal quantidadeKg,
-        @NotNull @DecimalMin("0.0") BigDecimal precoUnitario
+        @NotNull @DecimalMin("0.001") @Digits(integer = 7, fraction = 3) BigDecimal quantidadeKg,
+        @NotNull @DecimalMin("0.0") @Digits(integer = 8, fraction = 2) BigDecimal precoUnitario
     ) {}
     
     public record NegociacaoMensagemRequest(
@@ -364,9 +365,9 @@ public class Requests {
     
     public record ContrapropostaRequest(
         @NotNull UUID negociacaoId,
-        BigDecimal valorTotal,
-        List<NegociacaoItemRequest> itens,
-        String observacao
+        @DecimalMin("0.0") @Digits(integer = 8, fraction = 2) BigDecimal valorTotal,
+        @Size(max = 100) List<@NotNull @Valid NegociacaoItemRequest> itens,
+        @Size(max = 4000) String observacao
     ) {}
     
     public record RecusarNegociacaoRequest(
