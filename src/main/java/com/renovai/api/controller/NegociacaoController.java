@@ -244,6 +244,9 @@ public class NegociacaoController {
         Negociacao negociacao = fluxo.bloquear(request.negociacaoId());
         fluxo.exigirGestor(negociacao,principal.getName());
         fluxo.exigirAberta(negociacao);
+        if (itemRepository.findByNegociacao_NegociacaoId(negociacao.getNegociacaoId()).stream()
+                .anyMatch(i -> i.getMaterial().getMaterialId().equals(request.materialId())))
+            throw new RegraDeNegocioException("Informe itens sem materiais repetidos.");
         Material material = materialRepository.findById(request.materialId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Material", request.materialId()));
         NegociacaoItem item = new NegociacaoItem();

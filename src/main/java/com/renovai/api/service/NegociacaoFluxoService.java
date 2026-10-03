@@ -16,7 +16,6 @@ import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.*;
 
-/** Transições do acordo e do pedido na mesma transação, sem alterar o schema. */
 @Service
 @Transactional
 public class NegociacaoFluxoService {
@@ -46,7 +45,6 @@ public class NegociacaoFluxoService {
     }
 
     public Negociacao bloquear(UUID id) {
-        // O pedido serializa acordos concorrentes, inclusive de cooperativas distintas.
         List<UUID> pedidos =
                 jdbc.query(
                         "select pedido_id from negociacoes where negociacao_id=?",
@@ -213,7 +211,6 @@ public class NegociacaoFluxoService {
                         id);
         boolean usarItensPedido = itens.isEmpty();
         if (usarItensPedido) {
-            // Contrapropostas somente de valor mantêm os pesos e materiais do pedido original.
             itens =
                     jdbc.query(
                             """
@@ -301,7 +298,6 @@ public class NegociacaoFluxoService {
                             "select quantidade_kg from estoques where estoque_id=?",
                             BigDecimal.class,
                             saldo.estoqueId());
-            // O banco pode possuir o trigger de saldo. Nunca descontar duas vezes.
             if (depois != null && depois.compareTo(saldo.quantidade()) == 0) {
                 jdbc.update(
                         "update estoques set quantidade_kg=?,data_atualizacao=now() where"
@@ -340,16 +336,20 @@ public class NegociacaoFluxoService {
         n.setDataFechamento(LocalDateTime.now());
         negociacoes.saveAndFlush(n);
         sincronizarVinculo(n, status("PEDIDO", "Finalizado", "Concluído", "CONCLUIDO"));
+        atualizarConclusaoPedido(n);
+        if (observacao != null && !observacao.isBlank())
+            registrarObservacao(n, email, observacao, "SISTEMA");
+        return n;
+    }
+
+    private void atualizarConclusaoPedido(Negociacao n) {
         jdbc.update(
                 """
-                update pedidos p set data_conclusao=now() where p.pedido_id=? and not exists(
+                update pedidos p set data_conclusao=now() where p.pedido_id=? and p.data_conclusao is null and not exists(
                 select 1 from pedidos_cooperativas pc join status s on s.status_id=pc.status_id
                 where pc.pedido_id=p.pedido_id and lower(s.status_atual) not in ('finalizado','concluído','concluido','recusado','cancelado'))
                 """,
                 n.getPedido().getPedidoId());
-        if (observacao != null && !observacao.isBlank())
-            registrarObservacao(n, email, observacao, "SISTEMA");
-        return n;
     }
 
     public Negociacao recusar(UUID id, String email, String justificativa) {
@@ -362,6 +362,7 @@ public class NegociacaoFluxoService {
         n.setDataFechamento(LocalDateTime.now());
         negociacoes.saveAndFlush(n);
         sincronizarVinculo(n, status("PEDIDO", "Recusado"));
+        atualizarConclusaoPedido(n);
         registrarObservacao(n, email, justificativa, "SISTEMA");
         return n;
     }
