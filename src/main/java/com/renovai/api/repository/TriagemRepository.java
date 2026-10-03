@@ -12,6 +12,9 @@ import java.util.UUID;
 
 @Repository
 public interface TriagemRepository extends JpaRepository<Triagem, UUID> {
+        @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+        @Query("select t from Triagem t where t.eventoId=:id")
+        java.util.Optional<Triagem> buscarComBloqueio(@Param("id") UUID id);
         List<Triagem> findByColeta_EventoId(UUID coletaId);
 
         List<Triagem> findByEquipe_EquipeId(UUID equipeId);
@@ -47,8 +50,9 @@ public interface TriagemRepository extends JpaRepository<Triagem, UUID> {
         @Query("""
                         SELECT t FROM Triagem t
                         JOIN EquipeCooperado ec ON ec.equipe.equipeId = t.equipe.equipeId
+                        LEFT JOIN t.status s
                         WHERE ec.cooperado.funcionarioId = :cooperadoId
-                          AND t.status.statusAtual IN ('PENDENTE', 'EM_ANDAMENTO')
+                          AND (s IS NULL OR s.statusAtual IN ('PENDENTE', 'EM_ANDAMENTO', 'Em triagem'))
                         ORDER BY t.dataEvento ASC
                         """)
         List<Triagem> findAbertysByCooperado(@Param("cooperadoId") UUID cooperadoId);

@@ -1,22 +1,28 @@
 package com.renovai.api.controller;
  
 import com.renovai.api.dto.request.Requests.RateioGeralRequest;
+import com.renovai.api.dto.request.Requests.RateioIndividualRequest;
 import com.renovai.api.dto.request.Requests.RateioProporcionalsRequest;
 import com.renovai.api.dto.response.Responses.RateioDetalheResponse;
 import com.renovai.api.dto.response.Responses.RateioFuncionarioResponse;
 import com.renovai.api.dto.response.Responses.RateioListaResponse;
 import com.renovai.api.dto.response.Responses.RateioRealizadoResponse;
 import com.renovai.api.service.RateioService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
- 
+
+import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
- 
+
 @RestController
 @RequestMapping("/rateios")
 @Tag(name = "Rateios", description = "Distribuição de lucros para cooperados — telas 4.7 e 4.7.1")
@@ -27,7 +33,16 @@ public class RateioController {
     public RateioController(RateioService service) {
         this.service = service;
     }
- 
+
+    @PostMapping("/executar-individual")
+    @PreAuthorize("hasAnyRole('GESTOR_COOPERATIVA','ADMIN_COOPERATIVA')")
+    @Operation(summary = "Executar rateio com participantes e percentuais individuais")
+    public ResponseEntity<RateioRealizadoResponse> executarRateioIndividual(
+            @RequestBody @Valid RateioIndividualRequest request, Principal principal) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(service.executarRateioIndividual(request, principal.getName()));
+    }
+
     @GetMapping("/por-cooperativa/{cooperativaId}")
     @Operation(summary = "Listar rateios da cooperativa — tela 4.7")
     public ResponseEntity<List<RateioListaResponse>> listarPorCooperativa(

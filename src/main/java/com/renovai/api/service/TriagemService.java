@@ -24,26 +24,23 @@ public class TriagemService {
     private final ColetaRepository coletaRepository;
     private final MaterialRepository materialRepository;
     private final StatusRepository statusRepository;
-    private final EstoqueRepository estoqueRepository;
     private final EquipeCooperadoRepository equipeCooperadoRepository;
-    private final MovimentacaoEstoqueRepository movimentacaoEstoqueRepository;
+    private final TriagemEstoqueService estoque;
 
     public TriagemService(TriagemRepository repository,
                           EquipeRepository equipeRepository,
                           ColetaRepository coletaRepository,
                           MaterialRepository materialRepository,
                           StatusRepository statusRepository,
-                          EstoqueRepository estoqueRepository,
                           EquipeCooperadoRepository equipeCooperadoRepository,
-                          MovimentacaoEstoqueRepository movimentacaoEstoqueRepository) {
+                          TriagemEstoqueService estoque) {
         this.repository = repository;
         this.equipeRepository = equipeRepository;
         this.coletaRepository = coletaRepository;
         this.materialRepository = materialRepository;
         this.statusRepository = statusRepository;
-        this.estoqueRepository = estoqueRepository;
         this.equipeCooperadoRepository = equipeCooperadoRepository;
-        this.movimentacaoEstoqueRepository = movimentacaoEstoqueRepository;
+        this.estoque = estoque;
     }
 
     @Transactional(readOnly = true)
@@ -82,12 +79,17 @@ public class TriagemService {
     }
 
     public TriagemResponse criar(TriagemRequest request) {
+        estoque.bloquearColeta(request.coletaId());
         Equipe equipe = equipeRepository.findById(request.equipeId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Equipe", request.equipeId()));
         Coleta coleta = coletaRepository.findById(request.coletaId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Coleta", request.coletaId()));
         Material material = materialRepository.findById(request.materialId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Material", request.materialId()));
+        UUID cooperativaId = coleta.getCooperado().getCooperativa().getCooperativaId();
+        if (!cooperativaId.equals(equipe.getGestor().getCooperativa().getCooperativaId())
+                || (material.getCooperativa() != null && !cooperativaId.equals(material.getCooperativa().getCooperativaId())))
+            throw new RegraDeNegocioException("Equipe e material devem pertencer à cooperativa da coleta.");
 
         Status status = null;
         if (request.statusId() != null) {
@@ -98,9 +100,8 @@ public class TriagemService {
         BigDecimal quantidadeRejeitoKg = request.quantidadeRejeitoKg() != null
                 ? request.quantidadeRejeitoKg() : BigDecimal.ZERO;
 
-        if (quantidadeRejeitoKg.compareTo(request.quantidadeKg()) > 0) {
-            throw new RegraDeNegocioException("Quantidade de rejeito não pode ser maior que a quantidade triada.");
-        }
+        validarQuantidades(request.quantidadeKg(), quantidadeRejeitoKg);
+        validarStatus(status);
 
         Triagem triagem = new Triagem();
         triagem.setEquipe(equipe);
@@ -111,16 +112,19 @@ public class TriagemService {
         triagem.setQuantidadeRejeitoKg(quantidadeRejeitoKg);
         triagem.setImagemUrl(request.imagemUrl());
 
-        Triagem saved = repository.save(triagem);
-
-        BigDecimal quantidadeLiquidaKg = request.quantidadeKg().subtract(quantidadeRejeitoKg);
-        registrarEntradaEstoque(equipe.getGestor().getCooperativa(), material, quantidadeLiquidaKg, saved);
+        Triagem saved = repository.saveAndFlush(triagem);
+        estoque.sincronizar(saved);
 
         return toResponse(saved);
     }
 
     public TriagemResponse atualizar(UUID id, TriagemRequest request) {
-        Triagem triagem = findOrThrow(id);
+        Triagem triagem = bloquear(id);
+        if (!triagem.getEquipe().getEquipeId().equals(request.equipeId())
+                || !triagem.getColeta().getEventoId().equals(request.coletaId())
+                || !triagem.getMaterial().getMaterialId().equals(request.materialId()))
+            throw new RegraDeNegocioException("Não é permitido alterar a equipe, coleta ou material da triagem.");
+        validarQuantidades(request.quantidadeKg(), request.quantidadeRejeitoKg());
         triagem.setQuantidadeKg(request.quantidadeKg());
         triagem.setQuantidadeRejeitoKg(
                 request.quantidadeRejeitoKg() != null ? request.quantidadeRejeitoKg() : BigDecimal.ZERO);
@@ -128,21 +132,24 @@ public class TriagemService {
         if (request.statusId() != null) {
             Status status = statusRepository.findById(request.statusId())
                     .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
+            validarStatus(status);
             triagem.setStatus(status);
         }
-        return toResponse(repository.save(triagem));
+        return salvar(triagem);
     }
 
     public TriagemResponse atualizarStatus(UUID id, AtualizarStatusTriagemRequest request) {
-        Triagem triagem = findOrThrow(id);
+        Triagem triagem = bloquear(id);
         Status status = statusRepository.findById(request.statusId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
+        validarStatus(status);
         triagem.setStatus(status);
-        return toResponse(repository.save(triagem));
+        return salvar(triagem);
     }
 
     public TriagemResponse concluir(UUID id, ConcluirTriagemRequest request) {
-        Triagem triagem = findOrThrow(id);
+        Triagem triagem = bloquear(id);
+        validarQuantidades(request.quantidadeFinalKg(), triagem.getQuantidadeRejeitoKg());
         Status statusConcluida = statusRepository
                 .findByReferenciaAndStatusAtual("TRIAGEM", "Concluído")
                 .orElseThrow(() -> new RegraDeNegocioException("Status CONCLUIDA não encontrado para TRIAGEM."));
@@ -150,38 +157,42 @@ public class TriagemService {
         if (request.quantidadeFinalKg() != null) {
             triagem.setQuantidadeKg(request.quantidadeFinalKg());
         }
-        return toResponse(repository.save(triagem));
+        return salvar(triagem);
     }
 
     public void deletar(UUID id) {
-        findOrThrow(id);
+        bloquear(id);
+        if (estoque.temMovimentacoes(id))
+            throw new RegraDeNegocioException("Triagem com movimentações de estoque não pode ser excluída.");
         repository.deleteById(id);
     }
 
-    private void registrarEntradaEstoque(Cooperativa cooperativa, Material material,
-                                          BigDecimal quantidadeLiquidaKg, Triagem triagem) {
-        if (quantidadeLiquidaKg.compareTo(BigDecimal.ZERO) <= 0) {
-            return;
+    private Triagem bloquear(UUID id) {
+        estoque.bloquearColetaDaTriagem(id);
+        return repository.buscarComBloqueio(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Triagem", id));
+    }
+
+    private TriagemResponse salvar(Triagem triagem) {
+        validarQuantidades(triagem.getQuantidadeKg(), triagem.getQuantidadeRejeitoKg());
+        Triagem saved = repository.saveAndFlush(triagem);
+        estoque.sincronizar(saved);
+        return toResponse(saved);
+    }
+
+    private void validarStatus(Status status) {
+        if (status != null && !"TRIAGEM".equals(status.getReferencia()))
+            throw new RegraDeNegocioException("Informe um status de triagem.");
+    }
+
+    private void validarQuantidades(BigDecimal quantidade, BigDecimal rejeito) {
+        if (quantidade == null || quantidade.signum() <= 0 || (rejeito != null && rejeito.signum() < 0))
+            throw new RegraDeNegocioException("Peso aproveitável e rejeito inválidos.");
+        for (BigDecimal peso : java.util.List.of(quantidade, rejeito == null ? BigDecimal.ZERO : rejeito)) {
+            BigDecimal normalizado = peso.stripTrailingZeros();
+            if (normalizado.scale() > 3 || normalizado.precision() - normalizado.scale() > 7)
+                throw new RegraDeNegocioException("Peso fora dos limites do banco: até 7 dígitos inteiros e 3 decimais.");
         }
-
-        Estoque estoque = estoqueRepository
-                .findByCooperativa_CooperativaIdAndMaterial_MaterialId(
-                        cooperativa.getCooperativaId(), material.getMaterialId())
-                .orElseGet(() -> {
-                    Estoque novo = new Estoque();
-                    novo.setCooperativa(cooperativa);
-                    novo.setMaterial(material);
-                    novo.setQuantidadeKg(BigDecimal.ZERO);
-                    return novo;
-                });
-        estoque.setQuantidadeKg(estoque.getQuantidadeKg().add(quantidadeLiquidaKg));
-        Estoque estoqueSalvo = estoqueRepository.save(estoque);
-
-        MovimentacaoEstoque movimentacao = new MovimentacaoEstoque();
-        movimentacao.setEstoque(estoqueSalvo);
-        movimentacao.setTriagem(triagem);
-        movimentacao.setQuantidadeKg(quantidadeLiquidaKg);
-        movimentacaoEstoqueRepository.save(movimentacao);
     }
 
     private Triagem findOrThrow(UUID id) {

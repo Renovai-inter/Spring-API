@@ -1,6 +1,7 @@
 package com.renovai.api.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.AssociationOverride;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
@@ -14,6 +15,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "triagens")
+@AssociationOverride(name = "status", joinColumns = @JoinColumn(name = "status_id", foreignKey = @ForeignKey(name = "fk_triagens_status")))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

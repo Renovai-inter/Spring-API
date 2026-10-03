@@ -1,22 +1,32 @@
 package com.renovai.api.service;
 
 import com.renovai.api.dto.request.Requests.RateioGeralRequest;
+import com.renovai.api.dto.request.Requests.RateioIndividualRequest;
 import com.renovai.api.dto.request.Requests.RateioProporcionalsRequest;
 import com.renovai.api.dto.response.Responses.*;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
 import com.renovai.api.exception.RegraDeNegocioException;
 import com.renovai.api.model.*;
 import com.renovai.api.repository.*;
+
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -30,8 +40,174 @@ public class RateioService {
     private final ColetaRepository coletaRepository;
     private final TriagemRepository triagemRepository;
     private final ItemRepository itemRepository;
+    private final PerfilRepository perfilRepository;
 
-
+    @Transactional
+    public RateioRealizadoResponse executarRateioIndividual(
+            RateioIndividualRequest req, String email) {
+        if (req.dataInicio().isAfter(req.dataFim())
+                || !YearMonth.from(req.dataInicio()).equals(YearMonth.from(req.dataFim())))
+            throw new RegraDeNegocioException("Informe um período válido dentro do mesmo mês.");
+        if (req.participantes().isEmpty()
+                || req.participantes().stream().map(p -> p.cooperadoId()).distinct().count()
+                        != req.participantes().size())
+            throw new RegraDeNegocioException("Informe participantes sem repetições.");
+        BigDecimal soma = BigDecimal.ZERO;
+        for (var participante : req.participantes()) {
+            if (participante.percentual() == null
+                    || participante.percentual().signum() <= 0
+                    || participante.percentual().compareTo(new BigDecimal("100")) > 0)
+                throw new RegraDeNegocioException("Percentual individual inválido.");
+            soma = soma.add(participante.percentual());
+        }
+        if (soma.compareTo(new BigDecimal("100")) != 0)
+            throw new RegraDeNegocioException("A soma dos percentuais deve ser 100%.");
+        Funcionario gestor =
+                funcionarioRepository
+                        .findById(req.gestorId())
+                        .orElseThrow(
+                                () -> new RecursoNaoEncontradoException("Gestor", req.gestorId()));
+        validarGestorDaCooperativa(gestor, req.cooperativaId());
+        if (!"ATIVO".equals(gestor.getStatusFuncionario()))
+            throw new RegraDeNegocioException("O gestor deve estar ativo.");
+        boolean autorizado =
+                gestor.getUsuario().getEmail() != null
+                        && gestor.getUsuario().getEmail().equalsIgnoreCase(email);
+        if (!autorizado)
+            autorizado =
+                    perfilRepository
+                            .findByEmailIgnoreCase(email)
+                            .filter(
+                                    p ->
+                                            Boolean.TRUE.equals(p.getEstaAtivo())
+                                                    && p.getCooperativa() != null
+                                                    && p.getCooperativa()
+                                                            .getCooperativaId()
+                                                            .equals(req.cooperativaId()))
+                            .isPresent();
+        if (!autorizado)
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "O gestor não corresponde à conta autenticada.");
+        Cooperativa cooperativa =
+                cooperativaRepository
+                        .buscarComBloqueio(req.cooperativaId())
+                        .orElseThrow(
+                                () ->
+                                        new RecursoNaoEncontradoException(
+                                                "Cooperativa", req.cooperativaId()));
+        LocalDate mes = req.dataInicio().toLocalDate().withDayOfMonth(1);
+        if (rateioRepository.existsByCooperativa_CooperativaIdAndMesReferencia(
+                req.cooperativaId(), mes))
+            throw new RegraDeNegocioException(
+                    "Já existe rateio para esta cooperativa no mês informado.");
+        List<Funcionario> participantes = new ArrayList<>();
+        for (var participante : req.participantes()) {
+            Funcionario cooperado =
+                    funcionarioRepository
+                            .findById(participante.cooperadoId())
+                            .orElseThrow(
+                                    () ->
+                                            new RecursoNaoEncontradoException(
+                                                    "Funcionário", participante.cooperadoId()));
+            if (!"ATIVO".equals(cooperado.getStatusFuncionario())
+                    || !cooperado.getCooperativa().getCooperativaId().equals(req.cooperativaId()))
+                throw new RegraDeNegocioException(
+                        "Todos os participantes devem estar ativos e pertencer à cooperativa.");
+            participantes.add(cooperado);
+        }
+        TipoRateio tipo =
+                req.tipoRateioId() == null
+                        ? tipoRateioRepository
+                                .findByTipoRateio("PROPORCIONAL")
+                                .orElseThrow(
+                                        () ->
+                                                new RegraDeNegocioException(
+                                                        "Tipo PROPORCIONAL não cadastrado."))
+                        : tipoRateioRepository
+                                .findById(req.tipoRateioId())
+                                .orElseThrow(
+                                        () ->
+                                                new RecursoNaoEncontradoException(
+                                                        "Tipo de rateio", req.tipoRateioId()));
+        BigDecimal total =
+                calcularTotalVendasPeriodo(req.cooperativaId(), req.dataInicio(), req.dataFim())
+                        .setScale(2, RoundingMode.HALF_UP);
+        if (total.signum() <= 0)
+            throw new RegraDeNegocioException(
+                    "Não há vendas registradas no período informado para realizar o rateio.");
+        List<BigDecimal> exatos =
+                req.participantes().stream()
+                        .map(p -> total.multiply(p.percentual()).divide(new BigDecimal("100")))
+                        .toList();
+        List<BigDecimal> valores =
+                new ArrayList<>(
+                        exatos.stream().map(v -> v.setScale(2, RoundingMode.DOWN)).toList());
+        int centavos =
+                total.subtract(valores.stream().reduce(BigDecimal.ZERO, BigDecimal::add))
+                        .movePointRight(2)
+                        .intValueExact();
+        List<Integer> ordem =
+                IntStream.range(0, valores.size())
+                        .boxed()
+                        .sorted(
+                                Comparator.<Integer, BigDecimal>comparing(
+                                                i -> exatos.get(i).subtract(valores.get(i)))
+                                        .reversed())
+                        .toList();
+        for (int i = 0; i < centavos; i++) {
+            int indice = ordem.get(i);
+            valores.set(indice, valores.get(indice).add(new BigDecimal("0.01")));
+        }
+        for (BigDecimal valor : valores)
+            if (valor.precision() > 10)
+                throw new RegraDeNegocioException("Valor individual excede o limite do banco.");
+        Rateio rateio =
+                rateioRepository.saveAndFlush(
+                        Rateio.builder()
+                                .gestor(gestor)
+                                .cooperativa(cooperativa)
+                                .tipoRateio(tipo)
+                                .mesReferencia(mes)
+                                .dataRateio(LocalDateTime.now())
+                                .build());
+        List<ResultadoRateioIndividualResponse> distribuicao = new ArrayList<>();
+        for (int i = 0; i < participantes.size(); i++) {
+            Funcionario cooperado = participantes.get(i);
+            rateioFuncionarioRepository.save(
+                    RateioFuncionario.builder()
+                            .rateio(rateio)
+                            .cooperado(cooperado)
+                            .valorRateio(valores.get(i))
+                            .build());
+            distribuicao.add(
+                    new ResultadoRateioIndividualResponse(
+                            cooperado.getFuncionarioId(),
+                            cooperado.getUsuario().getNome(),
+                            cooperado.getCargo().getCargo(),
+                            cooperado
+                                    .getCargo()
+                                    .getCargo()
+                                    .toUpperCase(Locale.ROOT)
+                                    .contains("GESTOR"),
+                            valores.get(i),
+                            0,
+                            0,
+                            req.participantes().get(i).percentual()));
+        }
+        rateioFuncionarioRepository.flush();
+        return new RateioRealizadoResponse(
+                rateio.getRateioId(),
+                gestor.getFuncionarioId(),
+                gestor.getUsuario().getNome(),
+                cooperativa.getCooperativaId(),
+                cooperativa.getNome(),
+                tipo.getTipoRateio(),
+                rateio.getDataRateio(),
+                total,
+                total,
+                (long) participantes.size(),
+                distribuicao);
+    }
 
     @Transactional
     public RateioRealizadoResponse executarRateioGeral(RateioGeralRequest req) {

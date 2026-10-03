@@ -157,6 +157,7 @@ public class Requests {
         UUID statusId,
 
         @NotNull(message = "Quantidade é obrigatória")
+        @Digits(integer = 7, fraction = 3)
         @DecimalMin(
             value = "0.001",
             message = "Quantidade deve ser maior que zero"
@@ -164,8 +165,16 @@ public class Requests {
         BigDecimal quantidadeKg,
         String imagemUrl,
         String tipoColeta,
-        UUID rotaId
+        UUID rotaId,
+        UUID equipeId,
+        Boolean precisaTriagem,
+        @Size(max = 100) List<@NotNull @Valid ColetaMaterialRequest> materiais
 
+    ) {}
+
+    public record ColetaMaterialRequest(
+        @NotNull UUID materialId,
+        @NotNull @DecimalMin("0.001") @Digits(integer = 7, fraction = 3) BigDecimal quantidadeKg
     ) {}
 
     public record TriagemRequest(
@@ -415,8 +424,22 @@ public class Requests {
     ) {}
 
     public record ConcluirTriagemRequest(
-        @NotNull BigDecimal quantidadeFinalKg,
+        @NotNull @DecimalMin("0.001") @Digits(integer = 7, fraction = 3) BigDecimal quantidadeFinalKg,
         String observacao
+    ) {}
+
+    public record RateioParticipanteRequest(
+        @NotNull UUID cooperadoId,
+        @NotNull @DecimalMin("0.0001") @DecimalMax("100") @Digits(integer = 3, fraction = 4) BigDecimal percentual
+    ) {}
+
+    public record RateioIndividualRequest(
+        @NotNull UUID gestorId,
+        @NotNull UUID cooperativaId,
+        UUID tipoRateioId,
+        @NotNull LocalDateTime dataInicio,
+        @NotNull LocalDateTime dataFim,
+        @NotEmpty @Size(max = 1000) List<@NotNull @Valid RateioParticipanteRequest> participantes
     ) {}
 
     public record ConcluirPedidoRequest(

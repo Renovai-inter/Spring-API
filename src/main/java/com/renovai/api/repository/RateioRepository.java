@@ -13,6 +13,7 @@ import java.util.UUID;
 
 @Repository
 public interface RateioRepository extends JpaRepository<Rateio, UUID> {
+       boolean existsByCooperativa_CooperativaIdAndMesReferencia(UUID cooperativaId, java.time.LocalDate mesReferencia);
        List<Rateio> findByGestor_FuncionarioId(UUID gestorId);
    
        @Query("SELECT r FROM Rateio r WHERE r.gestor.cooperativa.cooperativaId = :cooperativaId ORDER BY r.dataRateio DESC")
