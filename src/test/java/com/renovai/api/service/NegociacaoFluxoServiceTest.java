@@ -246,6 +246,69 @@ class NegociacaoFluxoServiceTest {
     }
 
     @Test
+    void conclusaoPreservaDataOriginalDoPedido() {
+        service.aceitar(n.getNegociacaoId(), EMPRESA);
+        var data = java.sql.Timestamp.valueOf("2026-09-01 10:00:00");
+        jdbc.update("update pedidos set data_conclusao=?", data);
+
+        service.concluir(n.getNegociacaoId(), GESTOR, new BigDecimal("12"), null);
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select data_conclusao from pedidos", java.sql.Timestamp.class))
+                .isEqualTo(data);
+    }
+
+    @Test
+    void recusaDoUltimoVinculoEncerraPedidoSemAlterarDataNaRepeticao() {
+        Status recusado = status("Recusado");
+        jdbc.update(
+                "insert into status values(?,?)",
+                recusado.getStatusId(),
+                recusado.getStatusAtual());
+        jdbc.update(
+                "insert into pedidos_cooperativas(pedido_id,cooperativa_id,status_id)"
+                    + " values(?,?,?)",
+                n.getPedido().getPedidoId(),
+                UUID.randomUUID(),
+                finalizado.getStatusId());
+
+        service.recusar(n.getNegociacaoId(), EMPRESA, "Recusado.");
+
+        var data =
+                jdbc.queryForObject("select data_conclusao from pedidos", java.sql.Timestamp.class);
+        assertThat(data).isNotNull();
+        service.recusar(n.getNegociacaoId(), EMPRESA, "Recusado.");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select data_conclusao from pedidos", java.sql.Timestamp.class))
+                .isEqualTo(data);
+        assertThat(saldo()).isEqualByComparingTo("10");
+    }
+
+    @Test
+    void recusaMantemPedidoAbertoEnquantoOutroVinculoNaoFoiEncerrado() {
+        Status recusado = status("Recusado");
+        jdbc.update(
+                "insert into status values(?,?)",
+                recusado.getStatusId(),
+                recusado.getStatusAtual());
+        jdbc.update(
+                "insert into pedidos_cooperativas(pedido_id,cooperativa_id,status_id)"
+                    + " values(?,?,?)",
+                n.getPedido().getPedidoId(),
+                UUID.randomUUID(),
+                aceito.getStatusId());
+
+        service.recusar(n.getNegociacaoId(), EMPRESA, "Recusado.");
+
+        assertThat(
+                        jdbc.queryForObject(
+                                "select data_conclusao from pedidos", java.sql.Timestamp.class))
+                .isNull();
+    }
+
+    @Test
     void empresaNaoPodeConcluirEGestorNaoPodeAceitar() {
         assertThatThrownBy(
                         () ->
