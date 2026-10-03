@@ -33,7 +33,7 @@ class NegociacaoFluxoServiceTest {
     private PerfilRepository perfis;
     private Negociacao n;
     private UUID estoqueId, materialId, itemId;
-    private Status aceito, finalizado;
+    private Status aceito, finalizado, recusado;
     private static final String EMPRESA = "empresa@teste.com", GESTOR = "gestor@teste.com";
 
     @BeforeEach
@@ -103,14 +103,14 @@ class NegociacaoFluxoServiceTest {
         n.setValorTotal(new BigDecimal("12.00"));
         aceito = status("Aceito");
         finalizado = status("Finalizado");
+        recusado = status("Recusado");
         when(statuses.findByReferencia("NEGOCIACAO"))
                 .thenReturn(
                         List.of(
                                 n.getStatus(),
                                 status("Acordo fechado"),
                                 status("Negociação recusada")));
-        when(statuses.findByReferencia("PEDIDO"))
-                .thenReturn(List.of(aceito, finalizado, status("Recusado")));
+        when(statuses.findByReferencia("PEDIDO")).thenReturn(List.of(aceito, finalizado, recusado));
         Perfil empresaPerfil = new Perfil();
         empresaPerfil.setPerfilId(UUID.randomUUID());
         empresaPerfil.setEmpresa(empresa);
@@ -149,7 +149,7 @@ class NegociacaoFluxoServiceTest {
                 n.getNegociacaoId(),
                 pedido.getPedidoId(),
                 coop.getCooperativaId());
-        for (Status s : List.of(n.getStatus(), aceito, finalizado))
+        for (Status s : List.of(n.getStatus(), aceito, finalizado, recusado))
             jdbc.update("insert into status values(?,?)", s.getStatusId(), s.getStatusAtual());
         jdbc.update(
                 "insert into pedidos_cooperativas(pedido_id,cooperativa_id,status_id)"
@@ -189,6 +189,45 @@ class NegociacaoFluxoServiceTest {
                         jdbc.queryForObject(
                                 "select data_conclusao from pedidos", java.sql.Timestamp.class))
                 .isNull();
+    }
+
+    @Test
+    void endpointLegadoAceitaPeloMesmoFluxoSemExecutarProcedureAntiga() {
+        var repository = mock(FunctionEProceduresRepository.class);
+        var functions = new FunctionEProceduresService(repository, service);
+        var contexto = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        contexto.setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        EMPRESA, null));
+        try {
+            functions.fecharNegociacao(n.getNegociacaoId(), true);
+            functions.fecharNegociacao(n.getNegociacaoId(), true);
+            assertThat(n.getStatus().getStatusAtual()).isEqualTo("Acordo fechado");
+            assertThat(n.getDataFechamento()).isNull();
+            assertThat(saldo()).isEqualByComparingTo("4");
+            verifyNoInteractions(repository);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    void endpointLegadoRecusaPeloMesmoFluxoSemBaixarEstoque() {
+        var repository = mock(FunctionEProceduresRepository.class);
+        var functions = new FunctionEProceduresService(repository, service);
+        var contexto = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        contexto.setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        EMPRESA, null));
+        try {
+            functions.fecharNegociacao(n.getNegociacaoId(), false);
+            assertThat(n.getStatus().getStatusAtual()).isEqualTo("Negociação recusada");
+            assertThat(n.getDataFechamento()).isNotNull();
+            assertThat(saldo()).isEqualByComparingTo("10");
+            verifyNoInteractions(repository);
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
@@ -261,14 +300,9 @@ class NegociacaoFluxoServiceTest {
 
     @Test
     void recusaDoUltimoVinculoEncerraPedidoSemAlterarDataNaRepeticao() {
-        Status recusado = status("Recusado");
-        jdbc.update(
-                "insert into status values(?,?)",
-                recusado.getStatusId(),
-                recusado.getStatusAtual());
         jdbc.update(
                 "insert into pedidos_cooperativas(pedido_id,cooperativa_id,status_id)"
-                    + " values(?,?,?)",
+                        + " values(?,?,?)",
                 n.getPedido().getPedidoId(),
                 UUID.randomUUID(),
                 finalizado.getStatusId());
@@ -288,14 +322,9 @@ class NegociacaoFluxoServiceTest {
 
     @Test
     void recusaMantemPedidoAbertoEnquantoOutroVinculoNaoFoiEncerrado() {
-        Status recusado = status("Recusado");
-        jdbc.update(
-                "insert into status values(?,?)",
-                recusado.getStatusId(),
-                recusado.getStatusAtual());
         jdbc.update(
                 "insert into pedidos_cooperativas(pedido_id,cooperativa_id,status_id)"
-                    + " values(?,?,?)",
+                        + " values(?,?,?)",
                 n.getPedido().getPedidoId(),
                 UUID.randomUUID(),
                 aceito.getStatusId());
@@ -379,6 +408,39 @@ class NegociacaoFluxoServiceTest {
         assertThat(repo.contarPedidosConcluidos(n.getEmpresa().getEmpresaId())).isEqualTo(1L);
         assertThat(repo.listarPedidosPorEmpresa(n.getEmpresa().getEmpresaId()).get(0).statusAtual())
                 .isEqualTo("Finalizado");
+    }
+
+    @Test
+    void dashboardNaoContaPedidoRecusadoComoConcluidoMesmoComDataDeEncerramento() {
+        service.recusar(n.getNegociacaoId(), EMPRESA, "Não atende ao prazo.");
+        assertThat(
+                        jdbc.queryForObject(
+                                "select data_conclusao from pedidos", java.sql.Timestamp.class))
+                .isNotNull();
+        assertThat(
+                        new EmpresaSchemaRepository(jdbc)
+                                .contarPedidosConcluidos(n.getEmpresa().getEmpresaId()))
+                .isZero();
+    }
+
+    @Test
+    void dashboardContaConclusaoPeloVinculoMesmoComOutroVinculoAberto() {
+        jdbc.update(
+                "insert into pedidos_cooperativas(pedido_id,cooperativa_id,status_id)"
+                    + " values(?,?,?)",
+                n.getPedido().getPedidoId(),
+                UUID.randomUUID(),
+                n.getStatus().getStatusId());
+        service.aceitar(n.getNegociacaoId(), EMPRESA);
+        service.concluir(n.getNegociacaoId(), GESTOR, new BigDecimal("12"), null);
+        assertThat(
+                        jdbc.queryForObject(
+                                "select data_conclusao from pedidos", java.sql.Timestamp.class))
+                .isNull();
+        assertThat(
+                        new EmpresaSchemaRepository(jdbc)
+                                .contarPedidosConcluidos(n.getEmpresa().getEmpresaId()))
+                .isEqualTo(1L);
     }
 
     @Test

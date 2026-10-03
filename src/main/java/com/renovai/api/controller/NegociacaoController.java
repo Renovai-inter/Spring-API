@@ -158,12 +158,18 @@ public class NegociacaoController {
         Status emNegociacao = fluxo.status("NEGOCIACAO", "Em andamento", "EM_NEGOCIACAO");
         n.setStatus(emNegociacao);
         if (request.valorTotal() != null) n.setValorTotal(request.valorTotal());
+        if (request.itens() == null && request.valorTotal() != null) {
+            itemRepository.deleteByNegociacao_NegociacaoId(id);
+            itemRepository.flush();
+        }
         if (request.itens() != null) {
             if (request.itens().isEmpty() || request.itens().stream().map(NegociacaoItemRequest::materialId).distinct().count() != request.itens().size())
                 throw new RegraDeNegocioException("Informe itens sem materiais repetidos.");
             itemRepository.deleteByNegociacao_NegociacaoId(id);
             itemRepository.flush();
             for (NegociacaoItemRequest ir : request.itens()) {
+                if (!id.equals(ir.negociacaoId()))
+                    throw new RegraDeNegocioException("ID da negociação divergente.");
                 Material material = materialRepository.findById(ir.materialId())
                         .orElseThrow(() -> new RecursoNaoEncontradoException("Material", ir.materialId()));
                 NegociacaoItem item = new NegociacaoItem();
@@ -238,6 +244,7 @@ public class NegociacaoController {
     }
  
     @PostMapping("/itens")
+    @PreAuthorize("hasAnyRole('GESTOR_COOPERATIVA','ADMIN_COOPERATIVA')")
     @Operation(summary = "Adicionar item à negociação")
     public ResponseEntity<NegociacaoItemResponse> adicionarItem(
             @RequestBody @Valid NegociacaoItemRequest request, Principal principal) {

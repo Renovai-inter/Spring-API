@@ -591,10 +591,9 @@ where pc.pedido_id=? order by c.nome
     public Long contarPedidosConcluidos(UUID empresaId) {
         return jdbcTemplate.queryForObject(
 """
-select count(*) from pedidos p where p.empresa_id=? and (p.data_conclusao is not null or
-(exists(select 1 from pedidos_cooperativas pc where pc.pedido_id=p.pedido_id) and not exists(select
-1 from pedidos_cooperativas pc join status s on s.status_id=pc.status_id where
-pc.pedido_id=p.pedido_id and lower(s.status_atual) not in ('finalizado','concluído','concluido'))))
+select count(*) from pedidos p where p.empresa_id=? and exists(
+select 1 from pedidos_cooperativas pc join status s on s.status_id=pc.status_id
+where pc.pedido_id=p.pedido_id and lower(s.status_atual) in ('finalizado','concluído','concluido'))
 """,
                 Long.class,
                 empresaId);

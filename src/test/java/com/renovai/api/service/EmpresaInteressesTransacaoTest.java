@@ -38,6 +38,14 @@ class EmpresaInteressesTransacaoTest {
         jdbc = new JdbcTemplate(ds);
         jdbc.execute("create table empresas(empresa_id uuid primary key)");
         jdbc.execute(
+                "create table cooperativas(cooperativa_id uuid primary key,nome"
+                    + " varchar(255),imagem_url text)");
+        jdbc.execute(
+                "create table empresa_cooperativas_favoritas(favorito_id uuid default random_uuid()"
+                    + " primary key,empresa_id uuid,cooperativa_id uuid references"
+                    + " cooperativas,data_criacao timestamp default"
+                    + " current_timestamp,unique(empresa_id,cooperativa_id))");
+        jdbc.execute(
                 "create table categorias_materiais(categoria_id uuid primary key,nome_categoria"
                         + " varchar(50))");
         jdbc.execute(
@@ -65,7 +73,6 @@ class EmpresaInteressesTransacaoTest {
                                         null)))
                 .when(repository)
                 .buscarPerfilPorEmail(EMAIL);
-        // H2 não implementa ON CONFLICT(colunas); só esta inserção usa SQL equivalente no teste.
         doAnswer(
                         inv ->
                                 jdbc.update(
@@ -74,6 +81,20 @@ class EmpresaInteressesTransacaoTest {
                                         inv.getArgument(1, UUID.class)))
                 .when(repository)
                 .inserirInteresse(any(), any());
+        doAnswer(
+                        inv ->
+                                jdbc.update(
+                                        "insert into"
+                                            + " empresa_cooperativas_favoritas(empresa_id,cooperativa_id)"
+                                            + " select ?,? where not exists(select 1 from"
+                                            + " empresa_cooperativas_favoritas where empresa_id=?"
+                                            + " and cooperativa_id=?)",
+                                        inv.getArgument(0, UUID.class),
+                                        inv.getArgument(1, UUID.class),
+                                        inv.getArgument(0, UUID.class),
+                                        inv.getArgument(1, UUID.class)))
+                .when(repository)
+                .adicionarFavorito(any(), any());
         var target =
                 new EmpresaSchemaService(
                         repository, mock(PasswordEncoder.class), mock(JwtTokenProvider.class));
@@ -84,6 +105,52 @@ class EmpresaInteressesTransacaoTest {
                         new DataSourceTransactionManager(ds),
                         new AnnotationTransactionAttributeSource()));
         service = (EmpresaSchemaService) factory.getProxy();
+    }
+
+    @Test
+    void favoritoRepetidoRetornaMesmoRegistroERemocaoRepetidaPreservaOutraEmpresa() {
+        UUID cooperativaId = UUID.randomUUID(), outraEmpresaId = UUID.randomUUID();
+        jdbc.update(
+                "insert into cooperativas(cooperativa_id,nome) values(?,'Cooperativa')",
+                cooperativaId);
+        var favorito = service.favoritar(EMAIL, cooperativaId);
+        var repetido = service.favoritar(EMAIL, cooperativaId);
+        assertThat(repetido.favoritoId()).isEqualTo(favorito.favoritoId());
+        assertThat(repetido.dataCriacao()).isEqualTo(favorito.dataCriacao());
+        assertThat(service.favoritos(EMAIL)).hasSize(1);
+        jdbc.update(
+                "insert into empresa_cooperativas_favoritas(empresa_id,cooperativa_id) values(?,?)",
+                outraEmpresaId,
+                cooperativaId);
+        service.desfavoritar(EMAIL, cooperativaId);
+        service.desfavoritar(EMAIL, cooperativaId);
+        assertThat(service.favoritos(EMAIL)).isEmpty();
+        assertThat(repository.listarFavoritos(outraEmpresaId)).hasSize(1);
+        verify(repository, times(4)).bloquearEmpresa(empresaId);
+    }
+
+    @Test
+    void favoritoComCooperativaInexistenteNaoAlteraSelecao() {
+        assertThatThrownBy(() -> service.favoritar(EMAIL, UUID.randomUUID()))
+                .hasMessage("Cooperativa não encontrada.");
+        assertThat(service.favoritos(EMAIL)).isEmpty();
+    }
+
+    @Test
+    void postDeInteresseExigeCategoriaEListaVaziaContinuaValidaNoPut() {
+        try (var factory = jakarta.validation.Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+            assertThat(
+                            validator.validate(
+                                    new com.renovai.api.dto.request.EmpresaContaRequests
+                                            .InteresseRequest(null)))
+                    .hasSize(1);
+            assertThat(
+                            validator.validate(
+                                    new com.renovai.api.dto.request.EmpresaContaRequests
+                                            .SubstituirInteresses(List.of())))
+                    .isEmpty();
+        }
     }
 
     @Test

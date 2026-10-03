@@ -39,7 +39,7 @@ public class EmpresaContaRequests {
     public record AlterarSenha(
             @NotBlank String senhaAtual, @NotBlank @Size(min = 6, max = 72) String novaSenha) {}
 
-    public record InteresseRequest(UUID categoriaId) {}
+    public record InteresseRequest(@NotNull UUID categoriaId) {}
 
     public record SubstituirInteresses(@NotNull @Size(max = 100) List<@NotNull UUID> categoriaIds) {}
 
