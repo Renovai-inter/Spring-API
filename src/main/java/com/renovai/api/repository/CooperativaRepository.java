@@ -10,6 +10,9 @@ import java.util.UUID;
 
 @Repository
 public interface CooperativaRepository extends JpaRepository<Cooperativa, UUID> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select c from Cooperativa c where c.cooperativaId=:id")
+    java.util.Optional<Cooperativa> buscarComBloqueio(@org.springframework.data.repository.query.Param("id") UUID id);
     List<Cooperativa> findByNomeContainingIgnoreCase(String nome);
 
     @Query("SELECT c FROM Cooperativa c WHERE c.numeroCooperados >= :minimo")

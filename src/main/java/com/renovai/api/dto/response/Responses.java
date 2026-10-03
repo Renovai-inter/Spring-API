@@ -87,7 +87,9 @@ public class Responses {
         LocalDateTime dataColeta,
         String tipoColeta,
         String imagemUrl,
-        UUID rotaId 
+        UUID rotaId,
+        boolean precisaTriagem,
+        List<TriagemResponse> materiais
     ) {}
 
     public record TriagemResponse(
