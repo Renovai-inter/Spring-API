@@ -23,6 +23,10 @@ public interface PerfilRepository extends JpaRepository<Perfil, UUID> {
 
         boolean existsByEmail(String email);
 
+        boolean existsByEmailIgnoreCase(String email);
+
+        boolean existsByCnpj(String cnpj);
+
         List<Perfil> findByEstaAtivoTrue();
         Optional<Perfil> findByTokenRedefinicao(String token);
 
