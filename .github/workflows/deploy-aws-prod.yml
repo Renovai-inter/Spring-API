@@ -1,0 +1,106 @@
+name: Deploy API to AWS EKS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-aws-prod
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'renovai-api-spring' }}
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Run tests
+        run: mvn -B test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check ECR repository and EKS cluster
+        id: cluster
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" --region "$AWS_REGION" > /dev/null
+          VERSION=$(aws eks describe-cluster --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION" --query 'cluster.version' --output text)
+          echo "kubectl-version=v${VERSION}.0" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: orchestration/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+      - name: Setup kubectl matching the cluster version
+        uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ steps.cluster.outputs.kubectl-version }}
+
+      - name: Update kubeconfig for EKS
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+
+      - name: Check application secrets
+        run: kubectl get secret springboot-secrets -n renovai-api > /dev/null
+
+      - name: Deploy ECR image to EKS
+        env:
+          ECR_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          manifest = Path('orchestration/k8s/app.yaml').read_text()
+          if '${ECR_IMAGE}' not in manifest:
+              raise SystemExit('Missing ECR_IMAGE placeholder in the Kubernetes manifest')
+          Path(os.environ['RUNNER_TEMP'], 'app.yaml').write_text(
+              manifest.replace('${ECR_IMAGE}', os.environ['ECR_IMAGE'])
+          )
+          PY
+          kubectl apply -f "$RUNNER_TEMP/app.yaml"
+          kubectl rollout status deployment/springboot-api -n renovai-api --timeout=300s
+          kubectl get pods,service -n renovai-api
+
+      - name: Deployment diagnostics
+        if: failure()
+        run: |
+          kubectl get pods -n renovai-api || true
+          kubectl get events -n renovai-api --sort-by=.metadata.creationTimestamp || true
