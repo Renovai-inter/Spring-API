@@ -34,12 +34,11 @@ spec:
         app: springboot-api
 
     spec:
-      imagePullSecrets:
-        - name: dockerhub-creds
       containers:
         - name: springboot-app
 
-          image: "kauaribeiro/renovai-api:latest"
+          # Substituido pelo workflow antes de aplicar o manifesto.
+          image: "${ECR_IMAGE}"
 
           ports:
             - containerPort: 8080
