@@ -29,7 +29,8 @@ import org.springframework.test.web.servlet.MockMvc;
             "spring.datasource.username=sa",
             "spring.datasource.password=",
             "spring.jpa.hibernate.ddl-auto=create-drop",
-            "jwt.secret=chave-exclusiva-de-testes-com-mais-de-32-caracteres"
+            "jwt.secret=chave-exclusiva-de-testes-com-mais-de-32-caracteres",
+            "jwt.expiration=86400000"
         })
 @AutoConfigureMockMvc
 class CadastroCooperativaIntegrationTest {
