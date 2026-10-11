@@ -1,6 +1,7 @@
 package com.renovai.api.controller;
 
 import com.renovai.api.dto.request.Requests.UsuarioRequest;
+import com.renovai.api.dto.request.Requests.AtualizarUsuarioRequest;
 import com.renovai.api.dto.request.Requests.CompletarCadastroRequest;
 import com.renovai.api.dto.request.Requests.ValidarPrimeiroAcessoRequest;
 import com.renovai.api.dto.request.Requests.AlterarSenhaRequest;
@@ -67,6 +68,14 @@ public class UsuarioController {
             @PathVariable UUID id,
             @RequestBody @Valid UsuarioRequest request) {
         return ResponseEntity.ok(service.atualizar(id, request));
+    }
+
+    @PutMapping("/{id}/dados")
+    @Operation(summary = "Atualizar dados do usuário sem senha e e-mail")
+    public ResponseEntity<UsuarioResponse> atualizarDados(
+            @PathVariable UUID id,
+            @RequestBody @Valid AtualizarUsuarioRequest request) {
+        return ResponseEntity.ok(service.atualizarDados(id, request));
     }
 
     @PutMapping("/{id}/alterar-senha")

@@ -93,6 +93,16 @@ public class UsuarioService {
         return toResponse(repository.save(usuario));
     }
 
+    public UsuarioResponse atualizarDados(UUID id, AtualizarUsuarioRequest request) {
+        Usuario usuario = findOrThrow(id);
+        usuario.setNome(request.nome());
+        usuario.setDataNascimento(request.dataNascimento());
+        if (request.imagemUrl() != null) {
+            usuario.setImagemUrl(request.imagemUrl());
+        }
+        return toResponse(repository.save(usuario));
+    }
+
     public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
