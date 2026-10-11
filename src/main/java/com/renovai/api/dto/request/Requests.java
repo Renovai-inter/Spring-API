@@ -92,6 +92,22 @@ public class Requests {
         String imagemUrl
     ) {}
 
+    public record AtualizarUsuarioRequest(
+        @NotBlank(message = "Nome é obrigatório")
+        @Size(max = 255)
+        String nome,
+
+        @Pattern(
+            regexp = "\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}",
+            message = "CPF inválido (use 000.000.000-00)"
+        )
+        String cpf,
+
+        LocalDate dataNascimento,
+
+        String imagemUrl
+    ) {}
+
     public record EnderecoRequest(
         @Pattern(
             regexp = "\\d{5}-\\d{3}",
