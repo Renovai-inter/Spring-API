@@ -71,10 +71,15 @@ class AuthServiceTest {
 
     @ParameterizedTest
     @CsvSource({
+        "ADMIN_COOPERATIVA,ADMIN_COOPERATIVA",
         "Gestor,GESTOR_COOPERATIVA",
         "Cooperado,COOPERADO",
         "Administrador,ADMIN_SITE",
-        "Admin,ADMIN_SITE",
+        "Admin,ADMIN_COOPERATIVA",
+        "ADMIN_SITE,ADMIN_SITE",
+        "ROLE_ADMIN_SITE,ADMIN_SITE",
+        "admin,ADMIN_COOPERATIVA",
+        "ROLE_ADMIN,ADMIN_COOPERATIVA",
         "Motorista,MOTORISTA",
         "ROLE_GESTOR_COOPERATIVA,GESTOR_COOPERATIVA"
     })
