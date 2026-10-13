@@ -42,10 +42,14 @@ class CadastroCooperativaIntegrationTest {
     @Autowired private UsuarioRepository usuarios;
     @Autowired private PerfilRepository perfis;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private com.renovai.api.repository.FuncionarioRepository funcionarios;
+    @Autowired private com.renovai.api.repository.CargoRepository cargos;
 
     private static final String BODY =
             """
             {
+              "nomeResponsavel": "Responsável Teste",
+              "cpfResponsavel": "123.456.789-00",
               "nome": " Cooperativa Teste ",
               "contatoPreferencial": "(11) 99999-9999",
               "email": "ADMIN@TESTE.COM",
@@ -60,6 +64,7 @@ class CadastroCooperativaIntegrationTest {
 
     @AfterEach
     void limpar() {
+        funcionarios.deleteAll();
         perfis.deleteAll();
         cooperativas.deleteAll();
         enderecos.deleteAll();
@@ -69,6 +74,12 @@ class CadastroCooperativaIntegrationTest {
     @Test
     void cadastroPublicoPersisteVinculosEPermiteLoginSomenteComoAdminCooperativa()
             throws Exception {
+        var cargoAdmin = cargos.findByCargo("Admin").orElseGet(() -> {
+            var cargo = new com.renovai.api.model.Cargo();
+            cargo.setCargo("Admin");
+            return cargos.saveAndFlush(cargo);
+        });
+        long quantidadeCargos = cargos.count();
         // Campos extras não permitem escolher permissões ou vincular registros de terceiros.
         String tentativaDeEscalada =
                 BODY.replace(
@@ -99,11 +110,21 @@ class CadastroCooperativaIntegrationTest {
         assertThat(perfil.getEmpresa()).isNull();
         assertThat(perfil.getEstaAtivo()).isTrue();
         assertThat(perfil.getDataCriacao()).isNotNull();
-        assertThat(perfil.getSenhaHash()).isNotEqualTo("senha123");
-        assertThat(encoder.matches("senha123", perfil.getSenhaHash())).isTrue();
+        assertThat(perfil.getSenhaHash()).isNull();
+        Usuario usuario = usuarios.findByEmail("admin@teste.com").orElseThrow();
+        assertThat(encoder.matches("senha123", usuario.getSenhaHash())).isTrue();
+        assertThat(usuario.getNome()).isEqualTo("Responsável Teste");
+        assertThat(usuario.getCpf()).isEqualTo("123.456.789-00");
+        assertThat(json.get("usuarioId").asText()).isEqualTo(usuario.getUsuarioId().toString());
+        var funcionario = funcionarios.findByUsuario(usuario).orElseThrow();
+        assertThat(funcionario.getCargo().getCargo()).isEqualTo("Admin");
+        assertThat(funcionario.getCargo().getCargoId()).isEqualTo(cargoAdmin.getCargoId());
+        assertThat(cargos.count()).isEqualTo(quantidadeCargos);
+        assertThat(cargos.findByCargo("ADMIN_COOPERATIVA")).isEmpty();
+        assertThat(json.get("funcionarioId").asText()).isEqualTo(funcionario.getFuncionarioId().toString());
         assertThat(cooperativas.findAll().get(0).getNome()).isEqualTo("Cooperativa Teste");
         assertThat(cooperativas.findAll().get(0).getNumeroCooperados()).isZero();
-        assertThat(usuarios.count()).isZero();
+        assertThat(usuarios.count()).isEqualTo(1);
 
         String login =
                 mvc.perform(
@@ -113,11 +134,14 @@ class CadastroCooperativaIntegrationTest {
                                                 "{\"email\":\"admin@teste.com\",\"senha\":\"senha123\"}"))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("role").value("ADMIN_COOPERATIVA"))
-                        .andExpect(jsonPath("usuarioId").value(perfil.getPerfilId().toString()))
+                        .andExpect(jsonPath("usuarioId").value(usuario.getUsuarioId().toString()))
                         .andReturn()
                         .getResponse()
                         .getContentAsString();
         String token = mapper.readTree(login).get("token").asText();
+        mvc.perform(get("/admin/verificacao-permissao")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isForbidden());
         mvc.perform(
                         get("/cooperativas/" + json.get("cooperativaId").asText())
                                 .header("Authorization", "Bearer " + token))
@@ -170,6 +194,8 @@ class CadastroCooperativaIntegrationTest {
     void validaEnderecoObrigatorioFormatoDocumentosETamanhoDaSenhaEmBytes() throws Exception {
         for (String body :
                 new String[] {
+                    BODY.replace("123.456.789-00", "12345678900"),
+                    BODY.replace("Responsável Teste", " "),
                     BODY.replace("01001-000", "01001000"),
                     BODY.replace("12.345.678/0001-90", "12345678000190"),
                     BODY.replace("São Paulo", " "),
@@ -215,10 +241,57 @@ class CadastroCooperativaIntegrationTest {
     }
 
     @Test
+    void cpfDuplicadoNaoCriaInstituicao() throws Exception {
+        cadastrar();
+        mvc.perform(post("/auth/cadastro-cooperativa")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(BODY.replace("ADMIN@TESTE.COM", "outro@teste.com")
+                        .replace("12.345.678/0001-90", "98.765.432/0001-10")))
+                .andExpect(status().isUnprocessableEntity());
+        assertThat(usuarios.count()).isEqualTo(1);
+        assertThat(funcionarios.count()).isEqualTo(1);
+        assertThat(cooperativas.count()).isEqualTo(1);
+    }
+
+    @Test
+    void recuperacaoAlteraSenhaDoNovoUsuarioSemCriarCredencialNoPerfil() throws Exception {
+        cadastrar();
+        mvc.perform(post("/auth/esqueci-senha").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"admin@teste.com\"}"))
+                .andExpect(status().isNoContent());
+        var usuario = usuarios.findByEmail("admin@teste.com").orElseThrow();
+        assertThat(usuario.getTokenRedefinicao()).isNotBlank();
+        mvc.perform(post("/auth/redefinir-senha").contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(java.util.Map.of(
+                        "token", usuario.getTokenRedefinicao(), "novaSenha", "novaSenha123"))))
+                .andExpect(status().isNoContent());
+        mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"admin@teste.com\",\"senha\":\"novaSenha123\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("usuarioId").value(usuario.getUsuarioId().toString()));
+        assertThat(perfis.findByEmail("admin@teste.com").orElseThrow().getSenhaHash()).isNull();
+    }
+
+    @Test
     void endpointsAdministrativosContinuamProtegidosSemToken() throws Exception {
         for (String path : new String[] {"/cooperativas", "/perfis", "/enderecos"}) {
             mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content("{}"))
                     .andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    void falhaNoVinculoDesfazUsuarioPerfilCooperativaEEndereco() throws Exception {
+        jdbc.execute("alter table funcionarios add constraint falha_vinculo_teste check (status_funcionario <> 'ATIVO')");
+        try {
+            mvc.perform(post("/auth/cadastro-cooperativa")
+                    .contentType(MediaType.APPLICATION_JSON).content(BODY))
+                    .andExpect(status().isConflict());
+            assertVazio();
+            assertThat(usuarios.count()).isZero();
+            assertThat(funcionarios.count()).isZero();
+        } finally {
+            jdbc.execute("alter table funcionarios drop constraint falha_vinculo_teste");
         }
     }
 

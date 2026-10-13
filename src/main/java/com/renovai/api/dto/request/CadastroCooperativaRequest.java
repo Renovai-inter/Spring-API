@@ -5,6 +5,8 @@ import jakarta.validation.constraints.*;
 
 /** Cadastro institucional: o perfil criado é o administrador da cooperativa. */
 public record CadastroCooperativaRequest(
+        @NotBlank @Size(max = 255) String nomeResponsavel,
+        @NotBlank @Pattern(regexp = "\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}") String cpfResponsavel,
         @NotBlank @Size(max = 255) String nome,
         @Size(max = 4000) String descricao,
         @Min(0) Integer numeroCooperados,

@@ -53,7 +53,8 @@ public class AuthService {
             return empresaSchemaService.login(request);
         }
 
-        if (perfilRepository.findByEmail(request.email()).isPresent()) {
+        if (perfilRepository.findByEmail(request.email())
+                .filter(p -> p.getSenhaHash() != null).isPresent()) {
             return loginPerfil(request);
         }
         Optional<Usuario> usuarioEncontrado = usuarioRepository.findByEmail(request.email());
@@ -112,7 +113,8 @@ public class AuthService {
         }
         return switch (role) {
             case "GESTOR" -> "GESTOR_COOPERATIVA";
-            case "ADMIN", "ADMINISTRADOR" -> "ADMIN_SITE";
+            case "ADMIN" -> "ADMIN_COOPERATIVA";
+            case "ADMINISTRADOR" -> "ADMIN_SITE";
             default -> role;
         };
     }
@@ -121,7 +123,8 @@ public class AuthService {
     public String solicitarRedefinicaoSenha(String email) {
         String token = gerarTokenSeguro();
         LocalDateTime expiracao = LocalDateTime.now().plusMinutes(30);
-        Optional<Perfil> perfilEncontrado = perfilRepository.findByEmailIgnoreCase(email);
+        Optional<Perfil> perfilEncontrado = perfilRepository.findByEmailIgnoreCase(email)
+                .filter(p -> p.getSenhaHash() != null);
         Optional<Usuario> usuarioEncontrado =
                 perfilEncontrado.isPresent()
                         ? Optional.empty()
