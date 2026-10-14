@@ -66,6 +66,11 @@ public class AuthService {
         if (!passwordEncoder.matches(request.senha(), usuario.getSenhaHash())) {
             throw new RegraDeNegocioException("Credenciais inválidas.");
         }
+        return respostaUsuario(usuario);
+    }
+
+    /** Monta o login de um funcionário já autenticado (por senha ou pelo Google). */
+    private LoginResponse respostaUsuario(Usuario usuario) {
         Funcionario funcionario =
                 funcionarioRepository
                         .findByUsuario(usuario)
@@ -98,12 +103,51 @@ public class AuthService {
         if (!passwordEncoder.matches(request.senha(), perfil.getSenhaHash())) {
             throw new RegraDeNegocioException("Credenciais inválidas.");
         }
+        return respostaPerfil(perfil);
+    }
+
+    /** Monta o login de um perfil (gestor de empresa / admin de cooperativa) já autenticado. */
+    private LoginResponse respostaPerfil(Perfil perfil) {
         String role = perfil.getEmpresa() != null ? "GESTOR_EMPRESA" : "ADMIN_COOPERATIVA";
         return new LoginResponse(
                 tokenProvider.gerarToken(perfil.getEmail(), role),
                 perfil.getEmail(),
                 role,
                 perfil.getPerfilId());
+    }
+
+    /**
+     * Login de quem já teve o e-mail confirmado por outro provedor (ex.: Google). Segue a mesma
+     * ordem de busca do login por senha e devolve o mesmo JWT; nunca cria conta nova.
+     */
+    @Transactional
+    public LoginResponse loginVerificado(String email) {
+        if (empresaSchemaService.ehEmpresa(email)) {
+            return empresaSchemaService.loginVerificado(email);
+        }
+        Optional<Perfil> perfilComSenha =
+                perfilRepository.findByEmailIgnoreCase(email).filter(p -> p.getSenhaHash() != null);
+        if (perfilComSenha.isPresent()) {
+            return respostaPerfilAtivo(perfilComSenha.get());
+        }
+        Optional<Usuario> usuario = usuarioRepository.findByEmailIgnoreCase(email);
+        if (usuario.isPresent()) {
+            return respostaUsuario(usuario.get());
+        }
+        return perfilRepository
+                .findByEmailIgnoreCase(email)
+                .map(this::respostaPerfilAtivo)
+                .orElseThrow(
+                        () ->
+                                new RegraDeNegocioException(
+                                        "Não existe conta no Renovaí com este e-mail. Faça o cadastro primeiro."));
+    }
+
+    private LoginResponse respostaPerfilAtivo(Perfil perfil) {
+        if (!Boolean.TRUE.equals(perfil.getEstaAtivo())) {
+            throw new RegraDeNegocioException("Perfil inativo.");
+        }
+        return respostaPerfil(perfil);
     }
 
     private String roleDoCargo(String cargo) {
