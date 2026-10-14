@@ -25,7 +25,7 @@ import java.util.Properties;
  * <p>Configuração por variáveis de ambiente (padrão: Gmail com "senha de app"):
  *
  * <pre>
- * MAIL_USERNAME   conta que envia (ex.: renovai.app@gmail.com)
+ * MAIL_USERNAME   conta que envia (padrão renovai.suporte@gmail.com)
  * MAIL_PASSWORD   senha de app do Gmail (16 letras; os espaços são ignorados)
  * MAIL_HOST       opcional, padrão smtp.gmail.com
  * MAIL_PORT       opcional, padrão 587 (STARTTLS)
@@ -45,7 +45,7 @@ public class EmailService {
     private volatile JavaMailSenderImpl sender;
 
     public EmailService(
-            @Value("${mail.username:}") String usuario,
+            @Value("${mail.username:renovai.suporte@gmail.com}") String usuario,
             @Value("${mail.password:}") String senha,
             @Value("${mail.host:smtp.gmail.com}") String host,
             @Value("${mail.port:587}") int porta,
