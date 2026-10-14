@@ -49,7 +49,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = tokenProvider.extrairEmail(token);
 
             String role = tokenProvider.extrairRole(token);
-            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
+            String authority = "ROLE_" + role.toUpperCase();
+            // O administrador acumula as permissoes operacionais sem alterar seu perfil no JWT.
+            var authorities = "ROLE_ADMIN_COOPERATIVA".equals(authority)
+                    ? List.of(
+                            new SimpleGrantedAuthority(authority),
+                            new SimpleGrantedAuthority("ROLE_GESTOR_COOPERATIVA"),
+                            new SimpleGrantedAuthority("ROLE_COOPERADO"),
+                            new SimpleGrantedAuthority("ROLE_MOTORISTA"))
+                    : List.of(new SimpleGrantedAuthority(authority));
             
             var auth = new UsernamePasswordAuthenticationToken(email, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(auth);
