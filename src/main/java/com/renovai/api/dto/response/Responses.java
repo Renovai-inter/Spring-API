@@ -24,7 +24,8 @@ public class Responses {
         String horarioFuncionamento,
         String imagemUrl,
         String contatoPreferencial,
-        String cidade 
+        String cidade,
+        EnderecoResponse endereco
     ) {}
 
     public record EmpresaResponse(
