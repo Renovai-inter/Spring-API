@@ -66,11 +66,9 @@ metadata:
   name: springboot-service
   namespace: renovai-api
 
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
 
 spec:
-  type: LoadBalancer
+  type: ClusterIP
 
   selector:
     app: springboot-api
