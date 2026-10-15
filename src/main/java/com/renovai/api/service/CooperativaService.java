@@ -4,9 +4,11 @@ import com.renovai.api.dto.request.Requests.CooperativaRequest;
 import com.renovai.api.dto.response.Responses.CooperativaPerfilPublicoResponse;
 import com.renovai.api.dto.response.Responses.CooperativaResponse;
 import com.renovai.api.dto.response.Responses.EstoqueResponse;
+import com.renovai.api.dto.response.Responses.EnderecoResponse;
 import com.renovai.api.exception.RecursoNaoEncontradoException;
 import com.renovai.api.model.Cooperativa;
 import com.renovai.api.model.Perfil;
+import com.renovai.api.model.Endereco;
 import com.renovai.api.repository.AvaliacaoRepository;
 import com.renovai.api.repository.CooperativaRepository;
 import com.renovai.api.repository.EstoqueRepository;
@@ -142,14 +144,15 @@ public class CooperativaService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Cooperativa", id));
     }
  
-    private String resolverCidade(UUID cooperativaId) {
-        return perfilRepository.findByCooperativa_CooperativaIdAtivo(cooperativaId)
-                .filter(p -> p.getEndereco() != null)
-                .map(p -> p.getEndereco().getCidade())
-                .orElse(null);
-    }
- 
     private CooperativaResponse toResponse(Cooperativa c) {
+        Endereco endereco = perfilRepository.findByCooperativa_CooperativaIdAtivo(c.getCooperativaId())
+                .map(Perfil::getEndereco)
+                .orElse(null);
+        EnderecoResponse enderecoResponse = endereco != null
+                ? new EnderecoResponse(endereco.getEnderecoId(), endereco.getCep(),
+                        endereco.getLogradouro(), endereco.getNumero(), endereco.getComplemento(),
+                        endereco.getBairro(), endereco.getCidade(), endereco.getTipo())
+                : null;
         return new CooperativaResponse(
                 c.getCooperativaId(),
                 c.getNome(),
@@ -158,7 +161,8 @@ public class CooperativaService {
                 c.getHorarioFuncionamento(),
                 c.getImagemUrl(),
                 c.getContatoPreferencial(),
-                resolverCidade(c.getCooperativaId())
+                endereco != null ? endereco.getCidade() : null,
+                enderecoResponse
         );
     }
 }
