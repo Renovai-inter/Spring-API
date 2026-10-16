@@ -467,10 +467,21 @@ public class Requests {
         @NotBlank @Email String email
     ) {}
 
+    /**
+     * token: código de 6 dígitos enviado por e-mail (quando {@code email} vem preenchido)
+     * ou o token antigo de redefinição (quando {@code email} vem vazio).
+     */
     public record RedefinirSenhaRequest(
         @NotBlank String token,
-        @NotBlank @Size(min = 6) String novaSenha
+        @NotBlank @Size(min = 6) String novaSenha,
+        @Email String email
     ) {}
+
+    public record VerificarCodigoRequest(
+        @NotBlank @Email String email,
+        @NotBlank @Pattern(regexp = "\\d{6}", message = "O código tem 6 dígitos.") String codigo
+    ) {}
+
 
     public record AtualizarQuantidadeEstoqueRequest(
         @NotNull @DecimalMin("0.0") BigDecimal novaQuantidadeKg,
