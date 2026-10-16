@@ -75,6 +75,16 @@ public class CodigoRedefinicaoService {
         conta.get().gravarToken(hash(email, codigo), LocalDateTime.now().plusMinutes(VALIDADE_MINUTOS));
         tentativas.remove(email);
 
+        if (!emailService.configurado()) {
+            // Sem MAIL_USERNAME/MAIL_PASSWORD no servidor (ex.: testes, ambiente local): o código
+            // fica gravado, mas não há como enviá-lo. Não derruba a requisição para não revelar
+            // nada a quem pediu; o aviso fica no log do servidor.
+            LOGGER.error(
+                    "Código de redefinição gerado, mas o envio de e-mail não está configurado"
+                            + " (defina MAIL_USERNAME e MAIL_PASSWORD).");
+            return;
+        }
+
         String html =
                 emailService.modelo(
                         "codigo-redefinicao.html",

@@ -52,6 +52,7 @@ class CodigoRedefinicaoServiceTest {
         Usuario usuario = usuario();
         semPerfil();
         when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario));
+        when(emailService.configurado()).thenReturn(true);
         when(emailService.modelo(eq("codigo-redefinicao.html"), anyMap())).thenReturn("<html/>");
 
         service.solicitar(" Cooperado@Renovai.com ");
@@ -66,6 +67,19 @@ class CodigoRedefinicaoServiceTest {
                 .isNotEqualTo(codigo);
         assertThat(usuario.getTokenExpiracao()).isAfter(LocalDateTime.now().plusMinutes(14));
         verify(emailService).enviar(eq(EMAIL), anyString(), eq("<html/>"), anyString());
+    }
+
+    @Test
+    void semEmailConfiguradoGuardaOCodigoMasNaoFalha() {
+        Usuario usuario = usuario();
+        semPerfil();
+        when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario));
+        when(emailService.configurado()).thenReturn(false);
+
+        service.solicitar(EMAIL);
+
+        assertThat(usuario.getTokenRedefinicao()).isNotBlank();
+        verify(emailService, never()).enviar(anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
