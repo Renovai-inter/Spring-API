@@ -41,6 +41,7 @@ public class Funcionario {
     private Cargo cargo;
 
     @Column(name = "data_admissao", nullable = false)
+    @Builder.Default
     private LocalDateTime dataAdmissao = LocalDateTime.now();
 
     @Column(name = "status_funcionario", nullable = false, length = 20)
