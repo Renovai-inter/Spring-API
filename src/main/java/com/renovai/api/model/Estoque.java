@@ -44,5 +44,6 @@ public class Estoque {
     private BigDecimal quantidadeKg = BigDecimal.ZERO;
 
     @Column(name = "data_atualizacao", nullable = false)
+    @Builder.Default
     private LocalDateTime dataAtualizacao = LocalDateTime.now();
 }
