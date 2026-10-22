@@ -76,12 +76,12 @@ public class CodigoRedefinicaoService {
         tentativas.remove(email);
 
         if (!emailService.configurado()) {
-            // Sem MAIL_USERNAME/MAIL_PASSWORD no servidor (ex.: testes, ambiente local): o código
-            // fica gravado, mas não há como enviá-lo. Não derruba a requisição para não revelar
+            // Sem MAIL_SCRIPT_URL/MAIL_SCRIPT_SEGREDO nem MAIL_USERNAME/MAIL_PASSWORD no servidor
+            // (ex.: testes, ambiente local): o código fica gravado, mas não há como enviá-lo. Não derruba a requisição para não revelar
             // nada a quem pediu; o aviso fica no log do servidor.
             LOGGER.error(
                     "Código de redefinição gerado, mas o envio de e-mail não está configurado"
-                            + " (defina MAIL_USERNAME e MAIL_PASSWORD).");
+                            + " (defina MAIL_SCRIPT_URL e MAIL_SCRIPT_SEGREDO; ver docs/email-apps-script.md).");
             return;
         }
 
