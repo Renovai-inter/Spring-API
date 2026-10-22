@@ -86,6 +86,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErroResponse> handleDataIntegrity(
             DataIntegrityViolationException ex, WebRequest request) {
+        // Sem isso o log não diz qual restrição do banco falhou (NOT NULL, CHECK, UNIQUE, tamanho).
+        LOGGER.warn(
+                "Violação de integridade em {}: {}",
+                request.getDescription(false),
+                ex.getMostSpecificCause().getMessage());
         String msg = "Violação de integridade de dados. Verifique relacionamentos e campos únicos.";
         return buildError(HttpStatus.CONFLICT, "Conflito de Dados", msg, request);
     }

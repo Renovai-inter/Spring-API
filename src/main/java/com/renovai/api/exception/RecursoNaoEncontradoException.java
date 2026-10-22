@@ -4,4 +4,8 @@ public class RecursoNaoEncontradoException extends RuntimeException {
     public RecursoNaoEncontradoException(String recurso, Object id) {
         super(String.format("%s com id '%s' não encontrado.", recurso, id));
     }
+
+    public RecursoNaoEncontradoException(String mensagem) {
+        super(mensagem);
+    }
 }
