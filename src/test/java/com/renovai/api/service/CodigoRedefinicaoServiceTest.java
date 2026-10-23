@@ -70,15 +70,15 @@ class CodigoRedefinicaoServiceTest {
     }
 
     @Test
-    void semEmailConfiguradoGuardaOCodigoMasNaoFalha() {
+    void semEmailConfiguradoRespondeErroEmVezDeFingirQueEnviou() {
         Usuario usuario = usuario();
         semPerfil();
         when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario));
         when(emailService.configurado()).thenReturn(false);
 
-        service.solicitar(EMAIL);
-
-        assertThat(usuario.getTokenRedefinicao()).isNotBlank();
+        assertThatThrownBy(() -> service.solicitar(EMAIL))
+                .isInstanceOf(RegraDeNegocioException.class)
+                .hasMessageContaining("envio de e-mail não está configurado");
         verify(emailService, never()).enviar(anyString(), anyString(), anyString(), anyString());
     }
 
