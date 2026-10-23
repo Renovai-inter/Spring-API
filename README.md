@@ -213,3 +213,12 @@ com.renovai.api
 ├── security/        # JwtTokenProvider, JwtAuthenticationFilter
 └── service/         # Regras de negócio
 ```
+
+
+## Deploy AWS por release
+
+O workflow `.github/workflows/deploy-aws-prod.yml` executa testes, publica a
+imagem no ECR e atualiza o EKS somente ao publicar uma release estável
+(**Releases > Draft a new release > Publish release**). O deploy usa o commit
+da tag da release. Push, pull request, rascunho e pré-release não acionam o
+deploy de produção. O workflow de CI continua independente.
