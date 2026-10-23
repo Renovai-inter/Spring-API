@@ -44,6 +44,9 @@ class CadastroCooperativaIntegrationTest {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private com.renovai.api.repository.FuncionarioRepository funcionarios;
     @Autowired private com.renovai.api.repository.CargoRepository cargos;
+    // Sem servidor de e-mail no teste: finge que o envio está configurado e deu certo.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.renovai.api.service.EmailService emailService;
 
     private static final String BODY =
             """
@@ -255,6 +258,7 @@ class CadastroCooperativaIntegrationTest {
 
     @Test
     void recuperacaoAlteraSenhaDoNovoUsuarioSemCriarCredencialNoPerfil() throws Exception {
+        org.mockito.Mockito.when(emailService.configurado()).thenReturn(true);
         cadastrar();
         mvc.perform(post("/auth/esqueci-senha").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"admin@teste.com\"}"))

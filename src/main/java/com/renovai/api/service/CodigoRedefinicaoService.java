@@ -76,13 +76,15 @@ public class CodigoRedefinicaoService {
         tentativas.remove(email);
 
         if (!emailService.configurado()) {
-            // Sem MAIL_SCRIPT_URL/MAIL_SCRIPT_SEGREDO nem MAIL_USERNAME/MAIL_PASSWORD no servidor
-            // (ex.: testes, ambiente local): o código fica gravado, mas não há como enviá-lo. Não derruba a requisição para não revelar
-            // nada a quem pediu; o aviso fica no log do servidor.
+            // Sem MAIL_SCRIPT_URL/MAIL_SCRIPT_SEGREDO nem MAIL_USERNAME/MAIL_PASSWORD no servidor.
+            // Responde erro (e a transação desfaz o código gravado) para o app não abrir a tela
+            // do código sem que nenhum e-mail tenha saído.
             LOGGER.error(
-                    "Código de redefinição gerado, mas o envio de e-mail não está configurado"
+                    "Pedido de código recusado: o envio de e-mail não está configurado"
                             + " (defina MAIL_SCRIPT_URL e MAIL_SCRIPT_SEGREDO; ver docs/email-apps-script.md).");
-            return;
+            throw new RegraDeNegocioException(
+                    "Não conseguimos enviar o código agora: o envio de e-mail não está configurado"
+                            + " no servidor. Avise o suporte do Renovaí.");
         }
 
         String html =
