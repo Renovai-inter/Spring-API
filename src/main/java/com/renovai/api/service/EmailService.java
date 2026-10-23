@@ -1,5 +1,7 @@
 package com.renovai.api.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.renovai.api.exception.RegraDeNegocioException;
 
 import jakarta.mail.internet.InternetAddress;
@@ -15,14 +17,29 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 
 /**
- * Envio de e-mails transacionais (ex.: código de redefinição de senha) por SMTP.
+ * Envio de e-mails transacionais (ex.: código de redefinição de senha).
  *
- * <p>Configuração por variáveis de ambiente (padrão: Gmail com "senha de app"):
+ * <p>Dois caminhos, nesta ordem:
+ *
+ * <ol>
+ *   <li><b>Google Apps Script</b> (gratuito, por HTTPS): MAIL_SCRIPT_URL e MAIL_SCRIPT_SEGREDO.
+ *       É o caminho que funciona no plano gratuito do Render, que bloqueia as portas de SMTP
+ *       (25, 465 e 587). O script fica em docs/email-apps-script.md.
+ *   <li><b>SMTP</b> (Gmail com "senha de app"), para rodar local ou num servidor sem bloqueio.
+ * </ol>
+ *
+ * <p>Variáveis do SMTP:
  *
  * <pre>
  * MAIL_USERNAME   conta que envia (padrão renovai.suporte@gmail.com)
@@ -42,6 +59,15 @@ public class EmailService {
     private final String host;
     private final int porta;
     private final String nomeRemetente;
+    private final String scriptUrl;
+    private final String scriptSegredo;
+    private final ObjectMapper json = new ObjectMapper();
+    private final HttpClient http =
+            HttpClient.newBuilder()
+                    // O Apps Script responde com redirecionamento para o resultado.
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
     private volatile JavaMailSenderImpl sender;
 
     public EmailService(
@@ -49,15 +75,27 @@ public class EmailService {
             @Value("${mail.password:}") String senha,
             @Value("${mail.host:smtp.gmail.com}") String host,
             @Value("${mail.port:587}") int porta,
-            @Value("${mail.from-name:Renovaí}") String nomeRemetente) {
+            @Value("${mail.from-name:Renovaí}") String nomeRemetente,
+            @Value("${MAIL_SCRIPT_URL:}") String scriptUrl,
+            @Value("${MAIL_SCRIPT_SEGREDO:}") String scriptSegredo) {
         this.usuario = usuario == null ? "" : usuario.trim();
         this.senha = senha == null ? "" : senha.replace(" ", "");
         this.host = host;
         this.porta = porta;
         this.nomeRemetente = nomeRemetente;
+        this.scriptUrl = scriptUrl == null ? "" : scriptUrl.trim();
+        this.scriptSegredo = scriptSegredo == null ? "" : scriptSegredo.trim();
     }
 
     public boolean configurado() {
+        return scriptConfigurado() || smtpConfigurado();
+    }
+
+    private boolean scriptConfigurado() {
+        return !scriptUrl.isBlank() && !scriptSegredo.isBlank();
+    }
+
+    private boolean smtpConfigurado() {
         return !usuario.isBlank() && !senha.isBlank();
     }
 
@@ -66,6 +104,10 @@ public class EmailService {
         if (!configurado()) {
             throw new RegraDeNegocioException(
                     "O envio de e-mail não está configurado no servidor. Avise o suporte do Renovaí.");
+        }
+        if (scriptConfigurado()) {
+            enviarPeloScript(para, assunto, html, textoPuro);
+            return;
         }
         try {
             JavaMailSenderImpl mail = sender();
@@ -78,6 +120,37 @@ public class EmailService {
             mail.send(mensagem);
         } catch (Exception e) {
             LOGGER.error("Falha ao enviar e-mail para {}", para, e);
+            throw new RegraDeNegocioException(
+                    "Não foi possível enviar o e-mail agora. Tente novamente em alguns minutos.");
+        }
+    }
+
+    /** POST no Web App do Apps Script, que envia pelo Gmail da conta dona do script. */
+    private void enviarPeloScript(String para, String assunto, String html, String textoPuro) {
+        try {
+            Map<String, String> corpo = new LinkedHashMap<>();
+            corpo.put("segredo", scriptSegredo);
+            corpo.put("para", para);
+            corpo.put("assunto", assunto);
+            corpo.put("html", html);
+            corpo.put("texto", textoPuro);
+            corpo.put("nome", nomeRemetente);
+            HttpRequest pedido =
+                    HttpRequest.newBuilder(URI.create(scriptUrl))
+                            .timeout(Duration.ofSeconds(30))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(corpo)))
+                            .build();
+            HttpResponse<String> resposta =
+                    http.send(pedido, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            JsonNode resultado = json.readTree(resposta.body());
+            if (resposta.statusCode() != 200 || !resultado.path("ok").asBoolean(false)) {
+                throw new IllegalStateException(
+                        "Apps Script respondeu " + resposta.statusCode() + ": " + resultado.path("erro").asText(""));
+            }
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            LOGGER.error("Falha ao enviar e-mail para {} pelo Apps Script", para, e);
             throw new RegraDeNegocioException(
                     "Não foi possível enviar o e-mail agora. Tente novamente em alguns minutos.");
         }

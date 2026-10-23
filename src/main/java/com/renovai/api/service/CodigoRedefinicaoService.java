@@ -1,5 +1,6 @@
 package com.renovai.api.service;
 
+import com.renovai.api.exception.RecursoNaoEncontradoException;
 import com.renovai.api.exception.RegraDeNegocioException;
 import com.renovai.api.model.Perfil;
 import com.renovai.api.model.Usuario;
@@ -60,28 +61,27 @@ public class CodigoRedefinicaoService {
     }
 
     /**
-     * Gera e envia o código. Se o e-mail não tiver conta, não faz nada e não avisa — assim
-     * ninguém descobre quais e-mails estão cadastrados.
+     * Gera e envia o código. Se o e-mail não tiver conta, responde 404 para o app avisar a pessoa
+     * (decisão de produto: priorizar a clareza para o usuário sobre esconder quais e-mails têm conta).
      */
     @Transactional
     public void solicitar(String emailInformado) {
         String email = normalizar(emailInformado);
         Optional<Conta> conta = buscarConta(email);
         if (conta.isEmpty()) {
-            LOGGER.info("Redefinição de senha pedida para um e-mail sem conta.");
-            return;
+            throw new RecursoNaoEncontradoException("Não existe conta com este e-mail.");
         }
         String codigo = String.format("%06d", RANDOM.nextInt(1_000_000));
         conta.get().gravarToken(hash(email, codigo), LocalDateTime.now().plusMinutes(VALIDADE_MINUTOS));
         tentativas.remove(email);
 
         if (!emailService.configurado()) {
-            // Sem MAIL_USERNAME/MAIL_PASSWORD no servidor (ex.: testes, ambiente local): o código
-            // fica gravado, mas não há como enviá-lo. Não derruba a requisição para não revelar
+            // Sem MAIL_SCRIPT_URL/MAIL_SCRIPT_SEGREDO nem MAIL_USERNAME/MAIL_PASSWORD no servidor
+            // (ex.: testes, ambiente local): o código fica gravado, mas não há como enviá-lo. Não derruba a requisição para não revelar
             // nada a quem pediu; o aviso fica no log do servidor.
             LOGGER.error(
                     "Código de redefinição gerado, mas o envio de e-mail não está configurado"
-                            + " (defina MAIL_USERNAME e MAIL_PASSWORD).");
+                            + " (defina MAIL_SCRIPT_URL e MAIL_SCRIPT_SEGREDO; ver docs/email-apps-script.md).");
             return;
         }
 

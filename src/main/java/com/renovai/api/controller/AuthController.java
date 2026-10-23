@@ -47,7 +47,7 @@ public class AuthController {
     @PostMapping("/esqueci-senha")
     @Operation(
             summary = "Solicitar redefinição de senha — tela 1.7",
-            description = "Envia um código de 6 dígitos para o e-mail. Responde 204 mesmo se o e-mail não tiver conta.")
+            description = "Envia um código de 6 dígitos para o e-mail. Responde 404 se o e-mail não tiver conta.")
     public ResponseEntity<Void> esqueciSenha(@RequestBody @Valid EsqueciSenhaRequest request) {
         codigoRedefinicaoService.solicitar(request.email());
         return ResponseEntity.noContent().build();

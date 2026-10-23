@@ -83,11 +83,13 @@ class CodigoRedefinicaoServiceTest {
     }
 
     @Test
-    void emailSemContaNaoEnviaNadaNemAvisa() {
+    void emailSemContaResponde404ENaoEnviaNada() {
         semPerfil();
         when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.empty());
 
-        service.solicitar(EMAIL);
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.renovai.api.exception.RecursoNaoEncontradoException.class,
+                () -> service.solicitar(EMAIL));
 
         verify(emailService, never()).enviar(anyString(), anyString(), anyString(), anyString());
     }
