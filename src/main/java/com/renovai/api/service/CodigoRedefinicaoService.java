@@ -76,28 +76,18 @@ public class CodigoRedefinicaoService {
         tentativas.remove(email);
 
         if (!emailService.configurado()) {
-            // Sem MAIL_SCRIPT_URL/MAIL_SCRIPT_SEGREDO nem MAIL_USERNAME/MAIL_PASSWORD no servidor.
+            // Apps Script desligado (MAIL_SCRIPT_URL=-) e sem MAIL_USERNAME/MAIL_PASSWORD.
             // Responde erro (e a transação desfaz o código gravado) para o app não abrir a tela
             // do código sem que nenhum e-mail tenha saído.
             LOGGER.error(
                     "Pedido de código recusado: o envio de e-mail não está configurado"
-                            + " (defina MAIL_SCRIPT_URL e MAIL_SCRIPT_SEGREDO; ver docs/email-apps-script.md).");
+                            + " (ver docs/email-apps-script.md).");
             throw new RegraDeNegocioException(
                     "Não conseguimos enviar o código agora: o envio de e-mail não está configurado"
                             + " no servidor. Avise o suporte do Renovaí.");
         }
 
-        String html =
-                emailService.modelo(
-                        "codigo-redefinicao.html",
-                        Map.of("CODIGO", codigo, "VALIDADE", String.valueOf(VALIDADE_MINUTOS)));
-        String texto =
-                "Seu código para redefinir a senha do Renovaí é "
-                        + codigo
-                        + ".\nEle vale por "
-                        + VALIDADE_MINUTOS
-                        + " minutos. Se não foi você que pediu, ignore este e-mail.";
-        emailService.enviar(email, "Seu código para redefinir a senha do Renovaí", html, texto);
+        emailService.enviarCodigo(email, codigo, VALIDADE_MINUTOS);
     }
 
     /** Confere o código sem gastá-lo (o app usa para liberar a tela de nova senha). */

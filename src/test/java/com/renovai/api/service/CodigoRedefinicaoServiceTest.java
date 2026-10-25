@@ -3,7 +3,6 @@ package com.renovai.api.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -25,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -53,20 +51,18 @@ class CodigoRedefinicaoServiceTest {
         semPerfil();
         when(usuarioRepository.findByEmailIgnoreCase(EMAIL)).thenReturn(Optional.of(usuario));
         when(emailService.configurado()).thenReturn(true);
-        when(emailService.modelo(eq("codigo-redefinicao.html"), anyMap())).thenReturn("<html/>");
 
         service.solicitar(" Cooperado@Renovai.com ");
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<Map<String, String>> valores = ArgumentCaptor.forClass(Map.class);
-        verify(emailService).modelo(eq("codigo-redefinicao.html"), valores.capture());
-        String codigo = valores.getValue().get("CODIGO");
+        ArgumentCaptor<String> codigoEnviado = ArgumentCaptor.forClass(String.class);
+        verify(emailService)
+                .enviarCodigo(eq(EMAIL), codigoEnviado.capture(), eq(CodigoRedefinicaoService.VALIDADE_MINUTOS));
+        String codigo = codigoEnviado.getValue();
         assertThat(codigo).matches("\\d{6}");
         assertThat(usuario.getTokenRedefinicao())
                 .isEqualTo(CodigoRedefinicaoService.hash(EMAIL, codigo))
                 .isNotEqualTo(codigo);
         assertThat(usuario.getTokenExpiracao()).isAfter(LocalDateTime.now().plusMinutes(14));
-        verify(emailService).enviar(eq(EMAIL), anyString(), eq("<html/>"), anyString());
     }
 
     @Test
@@ -79,7 +75,7 @@ class CodigoRedefinicaoServiceTest {
         assertThatThrownBy(() -> service.solicitar(EMAIL))
                 .isInstanceOf(RegraDeNegocioException.class)
                 .hasMessageContaining("envio de e-mail não está configurado");
-        verify(emailService, never()).enviar(anyString(), anyString(), anyString(), anyString());
+        verify(emailService, never()).enviarCodigo(anyString(), anyString(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -91,7 +87,7 @@ class CodigoRedefinicaoServiceTest {
                 com.renovai.api.exception.RecursoNaoEncontradoException.class,
                 () -> service.solicitar(EMAIL));
 
-        verify(emailService, never()).enviar(anyString(), anyString(), anyString(), anyString());
+        verify(emailService, never()).enviarCodigo(anyString(), anyString(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
