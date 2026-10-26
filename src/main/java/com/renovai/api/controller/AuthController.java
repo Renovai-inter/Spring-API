@@ -2,11 +2,13 @@ package com.renovai.api.controller;
  
 import com.renovai.api.dto.request.LoginRequest;
 import com.renovai.api.dto.request.Requests.EsqueciSenhaRequest;
+import com.renovai.api.dto.request.Requests.GoogleLoginRequest;
 import com.renovai.api.dto.request.Requests.RedefinirSenhaRequest;
 import com.renovai.api.dto.request.Requests.VerificarCodigoRequest;
 import com.renovai.api.dto.response.Responses.LoginResponse;
 import com.renovai.api.service.AuthService;
 import com.renovai.api.service.CodigoRedefinicaoService;
+import com.renovai.api.service.GoogleAuthService;
 import com.renovai.api.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,14 +24,17 @@ public class AuthController {
     private final AuthService authService;
     private final UsuarioService usuarioService;
     private final CodigoRedefinicaoService codigoRedefinicaoService;
+    private final GoogleAuthService googleAuthService;
  
     public AuthController(
             AuthService authService,
             UsuarioService usuarioService,
-            CodigoRedefinicaoService codigoRedefinicaoService) {
+            CodigoRedefinicaoService codigoRedefinicaoService,
+            GoogleAuthService googleAuthService) {
         this.authService = authService;
         this.usuarioService = usuarioService;
         this.codigoRedefinicaoService = codigoRedefinicaoService;
+        this.googleAuthService = googleAuthService;
     }
  
     @PostMapping("/login")
@@ -42,6 +47,12 @@ public class AuthController {
     @Operation(summary = "Logout — invalida o token no cliente")
     public ResponseEntity<Void> logout() {
         return ResponseEntity.noContent().build();
+    }
+ 
+    @PostMapping("/google")
+    @Operation(summary = "Login com Google — recebe o ID token do Google e devolve o JWT do Renovaí")
+    public ResponseEntity<LoginResponse> loginGoogle(@RequestBody @Valid GoogleLoginRequest request) {
+        return ResponseEntity.ok(googleAuthService.login(request.idToken()));
     }
  
     @PostMapping("/esqueci-senha")
