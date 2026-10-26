@@ -43,21 +43,19 @@ class EmailServiceScriptTest {
 
     private EmailService comScript(String url) {
         // Sem senha de SMTP: só o script está configurado.
-        return new EmailService("", "", "smtp.gmail.com", 587, "Renovaí", url, "segredo-teste");
+        return new EmailService("", "", "smtp.gmail.com", 587, "Renovaí", url);
     }
 
     @Test
-    void enviaPeloScriptComSegredoEDestinatario() throws Exception {
+    void enviaSoDestinatarioCodigoEValidadeParaOScript() throws Exception {
         AtomicReference<String> recebido = new AtomicReference<>();
         EmailService service = comScript(scriptFalso("{\"ok\":true}", recebido));
 
         assertThat(service.configurado()).isTrue();
-        service.enviar("pessoa@exemplo.com", "Assunto", "<b>123456</b>", "123456");
+        service.enviarCodigo("pessoa@exemplo.com", "123456", 15);
 
         assertThat(recebido.get())
-                .contains("\"segredo\":\"segredo-teste\"")
-                .contains("\"para\":\"pessoa@exemplo.com\"")
-                .contains("123456");
+                .isEqualTo("{\"para\":\"pessoa@exemplo.com\",\"codigo\":\"123456\",\"validade\":\"15\"}");
     }
 
     @Test
@@ -65,14 +63,29 @@ class EmailServiceScriptTest {
         EmailService service =
                 comScript(scriptFalso("{\"ok\":false,\"erro\":\"segredo inválido\"}", new AtomicReference<>()));
 
-        assertThatThrownBy(() -> service.enviar("pessoa@exemplo.com", "A", "<p/>", "t"))
+        assertThatThrownBy(() -> service.enviarCodigo("pessoa@exemplo.com", "123456", 15))
                 .isInstanceOf(RegraDeNegocioException.class)
                 .hasMessageContaining("Não foi possível enviar o e-mail");
     }
 
     @Test
     void semScriptNemSmtpNaoEstaConfigurado() {
-        EmailService service = new EmailService("", "", "smtp.gmail.com", 587, "Renovaí", "", "");
+        EmailService service = new EmailService("", "", "smtp.gmail.com", 587, "Renovaí", "-");
         assertThat(service.configurado()).isFalse();
+    }
+
+    @Test
+    void scriptVemLigadoPorPadrao() {
+        EmailService service =
+                new EmailService("", "", "smtp.gmail.com", 587, "Renovaí", EmailService.SCRIPT_PADRAO);
+        assertThat(service.configurado()).isTrue();
+    }
+
+    @Test
+    void modeloDoSmtpTrocaCodigoEValidade() {
+        EmailService service = new EmailService("", "", "smtp.gmail.com", 587, "Renovaí", "-");
+        String html =
+                service.modelo("codigo-redefinicao.html", java.util.Map.of("CODIGO", "123456", "VALIDADE", "15"));
+        assertThat(html).contains("123456").contains("15 minutos").doesNotContain("{{");
     }
 }
