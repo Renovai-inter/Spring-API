@@ -184,9 +184,22 @@ public class Requests {
         UUID rotaId,
         UUID equipeId,
         Boolean precisaTriagem,
-        @Size(max = 100) List<@NotNull @Valid ColetaMaterialRequest> materiais
+        @Size(max = 100) List<@NotNull @Valid ColetaMaterialRequest> materiais,
 
-    ) {}
+        @Size(max = 500, message = "A descrição pode ter até 500 caracteres")
+        String descricao,
+
+        java.time.LocalDate dataPrevistaTriagem
+
+    ) {
+        /** Pedido sem descrição nem data prevista (formato anterior). */
+        public ColetaRequest(UUID cooperadoId, UUID statusId, BigDecimal quantidadeKg, String imagemUrl,
+                String tipoColeta, UUID rotaId, UUID equipeId, Boolean precisaTriagem,
+                List<ColetaMaterialRequest> materiais) {
+            this(cooperadoId, statusId, quantidadeKg, imagemUrl, tipoColeta, rotaId, equipeId,
+                    precisaTriagem, materiais, null, null);
+        }
+    }
 
     public record ColetaMaterialRequest(
         @NotNull UUID materialId,

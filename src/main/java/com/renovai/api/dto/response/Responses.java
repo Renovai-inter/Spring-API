@@ -90,7 +90,9 @@ public class Responses {
         String imagemUrl,
         UUID rotaId,
         boolean precisaTriagem,
-        List<TriagemResponse> materiais
+        List<TriagemResponse> materiais,
+        String descricao,
+        java.time.LocalDate dataPrevistaTriagem
     ) {}
 
     public record TriagemResponse(
