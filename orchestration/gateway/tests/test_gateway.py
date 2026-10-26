@@ -25,7 +25,12 @@ class GatewayTest(unittest.TestCase):
                 services = [d for d in docs if d["kind"] == "Service"]
                 self.assertEqual(len(services), 1)
                 service = services[0]
-                self.assertEqual(service["spec"]["loadBalancerClass"], "service.k8s.aws/nlb")
+                self.assertNotIn("loadBalancerClass", service["spec"])
+                annotations = service["metadata"]["annotations"]
+                self.assertEqual(annotations["service.beta.kubernetes.io/aws-load-balancer-type"], "nlb")
+                self.assertEqual(annotations["service.beta.kubernetes.io/aws-load-balancer-internal"], "false")
+                self.assertNotIn("service.beta.kubernetes.io/aws-load-balancer-nlb-target-type", annotations)
+                self.assertEqual(service["spec"].get("externalTrafficPolicy", "Cluster"), "Cluster")
                 self.assertEqual(service["spec"]["ports"][0]["port"], 443 if cert else 80)
                 config = docs[1]["data"]["nginx.conf"]
                 self.assertNotIn("${", config)

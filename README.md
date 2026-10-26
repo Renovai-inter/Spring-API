@@ -250,17 +250,17 @@ O timeout de leitura é 120s entre leituras e o limite do corpo é 10MiB.
 
 ### Preparação AWS
 
-- EKS convencional com AWS Load Balancer Controller instalado, IAM funcional,
-  VPC CNI e subnets públicas identificadas por `kubernetes.io/role/elb=1`.
-  O Service usa a classe explícita `service.k8s.aws/nlb`, targets IP e scheme público.
-  Não use este manifesto sem adaptação em EKS Auto Mode.
-- Não é necessário criar o NLB manualmente: aplicar o Service solicita sua criação.
-  Se o laboratório bloqueia o controlador ou permissões ELB, a criação do NLB
-  também pode falhar. Os pipelines não criam roles ou alteram IAM.
+- EKS convencional com controlador legado de Services, VPC CNI e subnets
+  públicas identificadas por `kubernetes.io/role/elb=1`. O Service usa a anotação
+  `aws-load-balancer-type: "nlb"`, sem loadBalancerClass, com targets de instância
+  e encaminhamento por NodePort. Não use este manifesto em EKS Auto Mode.
+- Aplicar o Service solicita o NLB; não precisa instalar o AWS Load Balancer
+  Controller ou criar uma role IRSA. Permissões ELB do cluster/laboratório
+  continuam necessárias. Os pipelines não criam roles ou alteram IAM.
 - O workflow usa os mesmos Secrets AWS do deploy Spring: `AWS_REGION`,
   `EKS_CLUSTER_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e, para
   credenciais temporárias, `AWS_SESSION_TOKEN`. A identidade precisa consultar
-  CoreDNS, verificar o controlador e gerenciar ConfigMap, Deployment e Service.
+  CoreDNS e gerenciar ConfigMap, Deployment e Service.
 - Opcional: variável GitHub `NLB_CERTIFICATE_ARN`, ARN de um certificado ACM
   emitido na mesma região. Com ela, o Service publica apenas TLS 443 e o NLB
   termina TLS antes de encaminhar HTTP ao Nginx. Aponte seu domínio ao NLB e
@@ -289,8 +289,8 @@ kubectl delete ingress springboot-ingress redis-api-ingress ia-api-ingress -n re
 
 Confirme a remoção do ALB e de eventuais NLBs antigos no console antes de considerar
 que existe apenas um balanceador. Services das APIs precisam estar ClusterIP.
-Há cobrança sobreposta durante a migração. Não desinstale o controlador: ele
-continua gerenciando o NLB. Nginx inicia com uma réplica para economizar;
+Há cobrança sobreposta durante a migração. Preserve qualquer controlador antigo
+até excluir os recursos que ele gerencia. Nginx inicia com uma réplica para economizar;
 reinício ou falha do node pode interromper temporariamente a entrada. Requests
 iniciais de 50m/32Mi e limites de 250m/128Mi precisam ser medidos sob carga.
 Mudanças no ConfigMap alteram o checksum do pod e provocam rollout na release.
