@@ -1,0 +1,82 @@
+name: Shared NLB gateway
+
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main, develop]
+    paths:
+      - 'orchestration/gateway/**'
+      - '.github/workflows/gateway.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'orchestration/gateway/**'
+      - '.github/workflows/gateway.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'PyYAML>=6,<7'
+      - name: Validate manifests and real proxy routing
+        env:
+          DOCKER_GATEWAY_TEST: '1'
+        run: python -m unittest discover -s orchestration/gateway/tests -v
+
+  deploy:
+    needs: validate
+    if: github.event_name == 'release' && github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: deploy-shared-gateway
+      cancel-in-progress: false
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+      NLB_CERTIFICATE_ARN: ${{ vars.NLB_CERTIFICATE_ARN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'PyYAML>=6,<7'
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Read EKS version
+        id: cluster
+        run: |
+          VERSION=$(aws eks describe-cluster --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION" --query 'cluster.version' --output text)
+          echo "kubectl-version=v${VERSION}.0" >> "$GITHUB_OUTPUT"
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ steps.cluster.outputs.kubectl-version }}
+      - name: Configure EKS access
+        run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
+      - name: Check NLB controller and render gateway
+        run: |
+          kubectl rollout status deployment/aws-load-balancer-controller -n kube-system --timeout=120s
+          DNS_RESOLVER=$(kubectl get service kube-dns -n kube-system -o jsonpath='{.spec.clusterIP}')
+          python orchestration/gateway/render.py --dns "$DNS_RESOLVER" --certificate "$NLB_CERTIFICATE_ARN" --output "$RUNNER_TEMP/gateway.yaml"
+      - name: Deploy shared gateway
+        run: |
+          kubectl apply -f "$RUNNER_TEMP/gateway.yaml"
+          kubectl rollout status deployment/renovai-gateway -n renovai-api --timeout=300s
+          kubectl get service renovai-gateway -n renovai-api
+      - name: Diagnostics
+        if: failure()
+        run: |
+          kubectl get pods,service -n renovai-api -l app=renovai-gateway || true
+          kubectl get events -n renovai-api --sort-by=.metadata.creationTimestamp || true

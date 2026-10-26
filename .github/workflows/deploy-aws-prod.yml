@@ -76,9 +76,6 @@ jobs:
       - name: Update kubeconfig for EKS
         run: aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
 
-      - name: Check shared ALB controller
-        run: kubectl rollout status deployment/aws-load-balancer-controller -n kube-system --timeout=120s
-
       - name: Check application secrets
         run: kubectl get secret springboot-secrets -n renovai-api > /dev/null
 
@@ -98,9 +95,8 @@ jobs:
           )
           PY
           kubectl apply -f "$RUNNER_TEMP/app.yaml"
-          kubectl apply -f orchestration/k8s/ingress.yaml
           kubectl rollout status deployment/springboot-api -n renovai-api --timeout=300s
-          kubectl get pods,service,ingress -n renovai-api
+          kubectl get pods,service -n renovai-api
 
       - name: Deployment diagnostics
         if: failure()
