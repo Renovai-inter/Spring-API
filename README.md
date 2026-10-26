@@ -222,3 +222,84 @@ imagem no ECR e atualiza o EKS somente ao publicar uma release estável
 (**Releases > Draft a new release > Publish release**). O deploy usa o commit
 da tag da release. Push, pull request, rascunho e pré-release não acionam o
 deploy de produção. O workflow de CI continua independente.
+
+
+## Entrada compartilhada: NLB e Nginx
+
+O workflow `.github/workflows/gateway.yml` valida o proxy em push/PR e implanta
+somente na publicação de release estável. É independente do deploy Java: ambos
+rodam na release do Spring, enquanto Redis e IA mantêm suas releases próprias.
+Não é preciso outro repositório nem construir uma imagem customizada do Nginx.
+
+O único Service LoadBalancer é `renovai-gateway`, no namespace `renovai-api`.
+As três APIs continuam ClusterIP. A configuração em `orchestration/gateway/nginx.conf`
+preserva caminho, query string, corpo e Authorization:
+
+| Caminho público | Destino interno |
+|---|---|
+| `/api` e `/api/...` | `springboot-service:80` |
+| `/rotas` e `/rotas/...` | `redis-api-service:80` |
+| Demais caminhos, incluindo `/chat`, `/docs`, `/monitor.html`, `/assets/...` | `ia-api-service:80` |
+| `/gateway-health` | Health do Nginx, independente das APIs |
+
+`/health` continua sendo o health da IA. O roteamento reserva todo `/rotas` para
+Redis; o RPA chama o retreino da IA pelo Service interno, sem passar pelo gateway.
+O proxy resolve Services dinamicamente para permitir deploys independentes,
+não repete automaticamente requisições e não faz buffering das respostas do chat.
+O timeout de leitura é 120s entre leituras e o limite do corpo é 10MiB.
+
+### Preparação AWS
+
+- EKS convencional com AWS Load Balancer Controller instalado, IAM funcional,
+  VPC CNI e subnets públicas identificadas por `kubernetes.io/role/elb=1`.
+  O Service usa a classe explícita `service.k8s.aws/nlb`, targets IP e scheme público.
+  Não use este manifesto sem adaptação em EKS Auto Mode.
+- Não é necessário criar o NLB manualmente: aplicar o Service solicita sua criação.
+  Se o laboratório bloqueia o controlador ou permissões ELB, a criação do NLB
+  também pode falhar. Os pipelines não criam roles ou alteram IAM.
+- O workflow usa os mesmos Secrets AWS do deploy Spring: `AWS_REGION`,
+  `EKS_CLUSTER_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e, para
+  credenciais temporárias, `AWS_SESSION_TOKEN`. A identidade precisa consultar
+  CoreDNS, verificar o controlador e gerenciar ConfigMap, Deployment e Service.
+- Opcional: variável GitHub `NLB_CERTIFICATE_ARN`, ARN de um certificado ACM
+  emitido na mesma região. Com ela, o Service publica apenas TLS 443 e o NLB
+  termina TLS antes de encaminhar HTTP ao Nginx. Aponte seu domínio ao NLB e
+  use o nome coberto pelo certificado. Sem ela, publica somente HTTP 80,
+  adequado apenas a testes sem dados sensíveis. HTTP não serve para frontend HTTPS.
+
+### Migração e verificação
+
+1. Publique os deploys atualizados das três APIs e a release do Spring com gateway.
+   Não remova a entrada antiga antes de testar a nova.
+2. Aguarde o hostname do Service e targets saudáveis no console EC2:
+
+```bash
+kubectl get service renovai-gateway -n renovai-api -w
+kubectl describe service renovai-gateway -n renovai-api
+```
+
+3. Teste `/gateway-health`, `/api/actuator/health`, `/rotas/ID_EXISTENTE`, `/health`
+   e uma chamada real ao chat. O health do Nginx e o rollout não comprovam saúde
+   dos bancos, APIs nem conclusão do provisionamento AWS.
+4. Atualize a URL base do app/site e o DNS. Depois, remova os Ingresses antigos:
+
+```bash
+kubectl delete ingress springboot-ingress redis-api-ingress ia-api-ingress -n renovai-api --ignore-not-found
+```
+
+Confirme a remoção do ALB e de eventuais NLBs antigos no console antes de considerar
+que existe apenas um balanceador. Services das APIs precisam estar ClusterIP.
+Há cobrança sobreposta durante a migração. Não desinstale o controlador: ele
+continua gerenciando o NLB. Nginx inicia com uma réplica para economizar;
+reinício ou falha do node pode interromper temporariamente a entrada. Requests
+iniciais de 50m/32Mi e limites de 250m/128Mi precisam ser medidos sob carga.
+Mudanças no ConfigMap alteram o checksum do pod e provocam rollout na release.
+
+Validação local, sem AWS:
+
+```bash
+python -m pip install 'PyYAML>=6,<7'
+python -m unittest discover -s orchestration/gateway/tests -v
+# Com Docker ativo, inclua os testes reais do proxy:
+DOCKER_GATEWAY_TEST=1 python -m unittest discover -s orchestration/gateway/tests -v
+```

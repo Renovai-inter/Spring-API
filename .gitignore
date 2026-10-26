@@ -15,3 +15,5 @@ application.properties
 
 *secret.yaml
 *cluster.yaml
+__pycache__/
+*.pyc
