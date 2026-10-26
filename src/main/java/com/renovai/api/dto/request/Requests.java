@@ -483,6 +483,11 @@ public class Requests {
     ) {}
 
 
+    /** Login com Google: o ID token que o app recebeu do Google. */
+    public record GoogleLoginRequest(
+        @NotBlank String idToken
+    ) {}
+
     public record AtualizarQuantidadeEstoqueRequest(
         @NotNull @DecimalMin("0.0") BigDecimal novaQuantidadeKg,
         String motivo

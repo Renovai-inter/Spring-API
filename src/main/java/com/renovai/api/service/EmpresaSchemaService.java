@@ -79,6 +79,21 @@ public class EmpresaSchemaService {
                 credenciais.get(0).perfilId());
     }
 
+    /** Login da Empresa cujo e-mail já foi confirmado por outro provedor (ex.: Google). */
+    @Transactional(readOnly = true)
+    public LoginResponse loginVerificado(String email) {
+        MeuPerfil perfil = meuPerfil(email);
+        List<CredencialEmpresa> credenciais = repository.buscarCredenciaisPorEmail(perfil.email());
+        if (credenciais.size() != 1) {
+            throw new RegraDeNegocioException("Credenciais inválidas.");
+        }
+        return new LoginResponse(
+                tokenProvider.gerarToken(perfil.email(), ROLE_EMPRESA),
+                perfil.email(),
+                ROLE_EMPRESA,
+                credenciais.get(0).perfilId());
+    }
+
     public CadastroResponse cadastrar(Cadastro request) {
         String email = normalizarEmail(request.email()),
                 cpf = validarDocumento(request.cpf(), 11),

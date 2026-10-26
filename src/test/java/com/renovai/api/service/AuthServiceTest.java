@@ -251,6 +251,33 @@ class AuthServiceTest {
         verifyNoInteractions(usuarioRepository);
     }
 
+    @Test
+    void loginVerificadoPeloGoogleNaoPedeSenhaEMantemOCargo() {
+        Usuario usuario = usuario();
+        Cargo cargo = new Cargo();
+        cargo.setCargo("Cooperado");
+        Funcionario funcionario = new Funcionario();
+        funcionario.setCargo(cargo);
+        funcionario.setStatusFuncionario("ATIVO");
+        when(usuarioRepository.findByEmailIgnoreCase(login.email())).thenReturn(Optional.of(usuario));
+        when(funcionarioRepository.findByUsuario(usuario)).thenReturn(Optional.of(funcionario));
+        when(tokenProvider.gerarToken(login.email(), "COOPERADO")).thenReturn("token");
+
+        LoginResponse response = service.loginVerificado(login.email());
+
+        assertThat(response.role()).isEqualTo("COOPERADO");
+        assertThat(response.token()).isEqualTo("token");
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void loginVerificadoSemContaNaoCriaConta() {
+        assertThatThrownBy(() -> service.loginVerificado("sem-conta@renovai.com"))
+                .isInstanceOf(RegraDeNegocioException.class)
+                .hasMessage("Não existe conta no Renovaí com este e-mail. Faça o cadastro primeiro.");
+        verifyNoInteractions(tokenProvider);
+    }
+
     private Usuario usuario() {
         Usuario usuario = new Usuario();
         usuario.setUsuarioId(UUID.randomUUID());
