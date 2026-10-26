@@ -94,7 +94,8 @@ HTTPServer(('0.0.0.0',80),Handler).serve_forever()
                 docker("rm", "-f", containers[2])
                 with self.assertRaises(HTTPError) as error:
                     urlopen(base + "/chat", timeout=10)
-                self.assertEqual(error.exception.code, 502)
+                # Backend removido pode recusar conexão (502) ou expirar no IP em cache (504).
+                self.assertIn(error.exception.code, (502, 504))
                 with urlopen(base + "/api/actuator/health", timeout=5) as response:
                     self.assertEqual(json.load(response)["backend"], "springboot-service")
         finally:
