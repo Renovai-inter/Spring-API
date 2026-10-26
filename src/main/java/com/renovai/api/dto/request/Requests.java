@@ -67,7 +67,11 @@ public class Requests {
         @DecimalMin(value = "0.0", message = "Preço sugerido deve ser positivo")
         BigDecimal precoSugerido,
 
-        Boolean estaDisponivel
+        Boolean estaDisponivel,
+
+        /** Foto do material (URL do Cloudinary); opcional. */
+        @Size(max = 2048, message = "URL da foto muito longa")
+        String imagemUrl
     ) {}
 
     public record UsuarioRequest(

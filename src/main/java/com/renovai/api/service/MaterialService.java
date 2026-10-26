@@ -67,6 +67,7 @@ public class MaterialService {
                 .cooperativa(cooperativa)
                 .precoSugerido(request.precoSugerido())
                 .estaDisponivel(request.estaDisponivel() != null ? request.estaDisponivel() : true)
+                .imagemUrl(foto(request.imagemUrl()))
                 .build();
         return toResponse(repository.save(material));
     }
@@ -78,7 +79,19 @@ public class MaterialService {
         material.setCategoria(categoria);
         material.setPrecoSugerido(request.precoSugerido());
         if (request.estaDisponivel() != null) material.setEstaDisponivel(request.estaDisponivel());
+        // sem foto no pedido, mantém a que já existe
+        if (request.imagemUrl() != null) material.setImagemUrl(foto(request.imagemUrl()));
         return toResponse(repository.save(material));
+    }
+
+    /** Só aceita foto por HTTPS (as fotos do app vêm do Cloudinary); vazio limpa a foto. */
+    private static String foto(String url) {
+        if (url == null || url.isBlank()) return null;
+        String limpa = url.trim();
+        if (!limpa.startsWith("https://")) {
+            throw new com.renovai.api.exception.RegraDeNegocioException("A foto do material precisa ser um link https.");
+        }
+        return limpa;
     }
  
     public void deletar(UUID id) {
