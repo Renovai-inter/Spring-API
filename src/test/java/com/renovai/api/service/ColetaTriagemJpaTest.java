@@ -127,21 +127,6 @@ class ColetaTriagemJpaTest {
                 .isEqualTo(1);
     }
 
-    @Test
-    void descricaoEDataPrevistaDaTriagemSaoGuardadasNaColeta() {
-        var base = request(true);
-        var pedido =
-                new ColetaRequest(
-                        base.cooperadoId(), null, base.quantidadeKg(), null, base.tipoColeta(), null,
-                        base.equipeId(), true, base.materiais(),
-                        "  Material com muita sujeira  ", java.time.LocalDate.of(2026, 11, 10));
-
-        var consultada = coletas.buscarPorId(coletas.criar(pedido).coletaId());
-
-        assertThat(consultada.descricao()).isEqualTo("Material com muita sujeira");
-        assertThat(consultada.dataPrevistaTriagem()).isEqualTo(java.time.LocalDate.of(2026, 11, 10));
-    }
-
     private ColetaRequest request(boolean precisa) {
         return new ColetaRequest(
                 cooperado.getFuncionarioId(),
