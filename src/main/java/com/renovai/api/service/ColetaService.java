@@ -123,6 +123,8 @@ public class ColetaService {
         coleta.setTipoColeta(request.tipoColeta());
         coleta.setImagemUrl(request.imagemUrl());
         coleta.setRota(rota);
+        coleta.setDescricao(texto(request.descricao()));
+        coleta.setDataPrevistaTriagem(request.dataPrevistaTriagem());
 
         Coleta saved = repository.saveAndFlush(coleta);
         salvarMateriais(saved, request);
@@ -139,6 +141,9 @@ public class ColetaService {
         coleta.setQuantidadeKg(request.quantidadeKg());
         coleta.setTipoColeta(request.tipoColeta());
         coleta.setImagemUrl(request.imagemUrl());
+        if (request.descricao() != null) coleta.setDescricao(texto(request.descricao()));
+        if (request.dataPrevistaTriagem() != null)
+            coleta.setDataPrevistaTriagem(request.dataPrevistaTriagem());
 
         if (request.statusId() != null) {
             Status status =
@@ -198,7 +203,13 @@ public class ColetaService {
                 c.getImagemUrl(),
                 c.getRota() != null ? c.getRota().getRotaId() : null,
                 precisaTriagem,
-                materiais);
+                materiais,
+                c.getDescricao(),
+                c.getDataPrevistaTriagem());
+    }
+
+    private static String texto(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     private void salvarMateriais(Coleta coleta, ColetaRequest request) {

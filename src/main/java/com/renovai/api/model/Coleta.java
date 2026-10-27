@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDate;
 import java.util.UUID;
 import java.math.BigDecimal;
 
@@ -35,5 +36,13 @@ public class Coleta extends EventoOperacional {
     @ManyToOne
     @JoinColumn(name = "rota_id", foreignKey = @ForeignKey(name = "fk_coletas_rotas"))
     private Rota rota;
+
+    /** Observação de quem registrou a coleta (ex.: "material com muita sujeira"). */
+    @Column(name = "descricao", columnDefinition = "TEXT")
+    private String descricao;
+
+    /** Quando a triagem está prevista (só faz sentido se a coleta precisa de triagem). */
+    @Column(name = "data_prevista_triagem")
+    private LocalDate dataPrevistaTriagem;
 
 }
