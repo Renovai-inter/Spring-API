@@ -48,7 +48,7 @@ class GatewayTest(unittest.TestCase):
         config = module.render("127.0.0.11")[1]["data"]["nginx.conf"]
         rules = re.findall(r"~(\S+) (\S+);", config)
         default = re.search(r"default (\S+);", config)[1]
-        cases = {"/api": "springboot", "/api/auth/login": "springboot", "/rotas": "redis-api", "/rotas/123": "redis-api", "/rotas/retreinar": "redis-api", "/apiXYZ": "ia-api", "/rotasXYZ": "ia-api", "/chat": "ia-api", "/monitor.html": "ia-api", "/assets/renovai.png": "ia-api", "/docs": "ia-api"}
+        cases = {"/api": "springboot", "/api/auth/login": "springboot", "/rotas": "redis-api", "/rotas/123": "redis-api", "/rotas/123/paradas": "redis-api", "/rotas/otimizar": "ia-api", "/rotas/retreinar": "ia-api", "/rotas/otimizarXYZ": "redis-api", "/rotas/otimizar/123": "redis-api", "/apiXYZ": "ia-api", "/rotasXYZ": "ia-api", "/chat": "ia-api", "/monitor.html": "ia-api", "/assets/renovai.png": "ia-api", "/docs": "ia-api"}
         for path, expected in cases.items():
             target = next((host for pattern, host in rules if re.search(pattern, path)), default)
             self.assertTrue(target.startswith(expected), (path, target))
