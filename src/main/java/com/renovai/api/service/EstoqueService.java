@@ -20,6 +20,10 @@ public class EstoqueService {
     private final EstoqueRepository repository;
     private final CooperativaRepository cooperativaRepository;
     private final MaterialRepository materialRepository;
+
+    /** Opcional: ausente nos testes que montam o serviço à mão (aí não há push). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacaoService notificacoes;
  
     public EstoqueService(EstoqueRepository repository,
                           CooperativaRepository cooperativaRepository,
@@ -67,16 +71,31 @@ public class EstoqueService {
  
     public EstoqueResponse atualizar(UUID id, EstoqueRequest request) {
         Estoque estoque = findOrThrow(id);
+        var antes = estoqueAntes(estoque);
         estoque.setQuantidadeKg(request.quantidadeKg());
         estoque.setDataAtualizacao(LocalDateTime.now());
-        return toResponse(repository.save(estoque));
+        return salvar(estoque, antes);
     }
  
     public EstoqueResponse atualizarQuantidade(UUID id, AtualizarQuantidadeEstoqueRequest request) {
         Estoque estoque = findOrThrow(id);
+        var antes = estoqueAntes(estoque);
         estoque.setQuantidadeKg(request.novaQuantidadeKg());
         estoque.setDataAtualizacao(LocalDateTime.now());
-        return toResponse(repository.save(estoque));
+        return salvar(estoque, antes);
+    }
+
+    private java.util.Map<UUID, java.math.BigDecimal> estoqueAntes(Estoque estoque) {
+        return notificacoes != null
+                ? notificacoes.estoque(estoque.getCooperativa().getCooperativaId())
+                : java.util.Map.of();
+    }
+
+    private EstoqueResponse salvar(Estoque estoque, java.util.Map<UUID, java.math.BigDecimal> antes) {
+        Estoque saved = repository.save(estoque);
+        if (notificacoes != null)
+            notificacoes.estoqueAlterado(saved.getCooperativa().getCooperativaId(), antes);
+        return toResponse(saved);
     }
  
     public void deletar(UUID id) {

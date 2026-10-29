@@ -27,6 +27,10 @@ public class NegociacaoFluxoService {
     private final NegociacaoMensagemRepository mensagens;
     private final JdbcTemplate jdbc;
 
+    /** Opcional: ausente nos testes que montam o serviço à mão (aí não há push). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacaoService notificacoes;
+
     public NegociacaoFluxoService(
             NegociacaoRepository negociacoes,
             StatusRepository statuses,
@@ -197,6 +201,9 @@ public class NegociacaoFluxoService {
         String atual = normalizar(n.getStatus().getStatusAtual());
         if (Set.of("ACORDO_FECHADO", "ACEITO", "CONCLUIDO").contains(atual)) return n;
         exigirAberta(n);
+        UUID cooperativaId = n.getCooperativa().getCooperativaId();
+        Map<UUID, BigDecimal> estoqueAntes =
+                notificacoes != null ? notificacoes.estoque(cooperativaId) : Map.of();
         Status aceito = status("NEGOCIACAO", "Acordo fechado", "ACEITO");
         Status pedidoAceito = status("PEDIDO", "Aceito");
         List<ItemAcordo> itens =
@@ -318,6 +325,10 @@ public class NegociacaoFluxoService {
         n.setStatus(aceito);
         negociacoes.saveAndFlush(n);
         sincronizarVinculo(n, pedidoAceito);
+        if (notificacoes != null) {
+            notificacoes.propostaAceita(cooperativaId, n.getEmpresa().getNome(), n.getValorTotal());
+            notificacoes.estoqueAlterado(cooperativaId, estoqueAntes);
+        }
         return n;
     }
 
@@ -339,6 +350,13 @@ public class NegociacaoFluxoService {
         atualizarConclusaoPedido(n);
         if (observacao != null && !observacao.isBlank())
             registrarObservacao(n, email, observacao, "SISTEMA");
+        if (notificacoes != null)
+            notificacoes.propostaFinalizada(
+                    n.getCooperativa().getCooperativaId(),
+                    n.getEmpresa().getEmpresaId(),
+                    n.getCooperativa().getNome(),
+                    n.getEmpresa().getNome(),
+                    n.getValorTotal());
         return n;
     }
 

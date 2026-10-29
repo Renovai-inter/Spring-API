@@ -42,6 +42,10 @@ public class RateioService {
     private final ItemRepository itemRepository;
     private final PerfilRepository perfilRepository;
 
+    /** Opcional: ausente nos testes que montam o serviço à mão (aí não há push). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacaoService notificacoes;
+
     @Transactional
     public RateioRealizadoResponse executarRateioIndividual(
             RateioIndividualRequest req, String email) {
@@ -195,7 +199,7 @@ public class RateioService {
                             req.participantes().get(i).percentual()));
         }
         rateioFuncionarioRepository.flush();
-        return new RateioRealizadoResponse(
+        return avisar(new RateioRealizadoResponse(
                 rateio.getRateioId(),
                 gestor.getFuncionarioId(),
                 gestor.getUsuario().getNome(),
@@ -206,7 +210,7 @@ public class RateioService {
                 total,
                 total,
                 (long) participantes.size(),
-                distribuicao);
+                distribuicao));
     }
 
     @Transactional
@@ -253,12 +257,12 @@ public class RateioService {
                     c.getCargo().getCargo().contains("GESTOR"),
                     valorPorPessoa, 0, 0, calcularPercentual(valorPorPessoa, totalVendas));
         }).toList();
-        return new RateioRealizadoResponse(
+        return avisar(new RateioRealizadoResponse(
                 rateio.getRateioId(), gestor.getFuncionarioId(), gestor.getUsuario().getNome(),
                 gestor.getCooperativa().getCooperativaId(), gestor.getCooperativa().getNome(),
                 "GERAL", rateio.getDataRateio(), totalVendas,
                 valorPorPessoa.multiply(BigDecimal.valueOf(cooperados.size())),
-                (long) cooperados.size(), distribuicao);
+                (long) cooperados.size(), distribuicao));
     }
 
     @Transactional
@@ -331,11 +335,22 @@ public class RateioService {
 
         BigDecimal totalDistribuido = rateioFuncionarioRepository.sumValoresByRateio(rateio.getRateioId());
 
-        return new RateioRealizadoResponse(
+        return avisar(new RateioRealizadoResponse(
                 rateio.getRateioId(), gestor.getFuncionarioId(), gestor.getUsuario().getNome(),
                 gestor.getCooperativa().getCooperativaId(), gestor.getCooperativa().getNome(),
                 "PROPORCIONAL", rateio.getDataRateio(), totalVendas, totalDistribuido,
-                (long) cooperados.size(), distribuicao);
+                (long) cooperados.size(), distribuicao));
+    }
+
+    /** Avisa cada participante do rateio (depois do commit) com o valor que ele recebeu. */
+    private RateioRealizadoResponse avisar(RateioRealizadoResponse r) {
+        if (notificacoes != null && r.distribuicao() != null) {
+            java.util.Map<UUID, BigDecimal> valores = new java.util.LinkedHashMap<>();
+            for (ResultadoRateioIndividualResponse d : r.distribuicao())
+                valores.put(d.funcionarioId(), d.valorRateio());
+            notificacoes.rateioRealizado(valores, r.tipoRateio());
+        }
+        return r;
     }
 
     public List<RateioListaResponse> listarTodos(UUID cooperativaId) {
