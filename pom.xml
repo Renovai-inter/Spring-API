@@ -85,6 +85,21 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!-- Notificações push no app (Firebase Cloud Messaging) -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.11.0</version>
+            <!-- usa Messaging e Firestore; o Storage traria o jackson-dataformat-xml e as
+                 respostas poderiam sair em XML -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.cloud</groupId>
+                    <artifactId>google-cloud-storage</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

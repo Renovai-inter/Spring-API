@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -26,6 +27,10 @@ public class TriagemService {
     private final StatusRepository statusRepository;
     private final EquipeCooperadoRepository equipeCooperadoRepository;
     private final TriagemEstoqueService estoque;
+
+    /** Opcional: ausente nos testes que montam o serviço à mão (aí não há push). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacaoService notificacoes;
 
     public TriagemService(TriagemRepository repository,
                           EquipeRepository equipeRepository,
@@ -112,8 +117,18 @@ public class TriagemService {
         triagem.setQuantidadeRejeitoKg(quantidadeRejeitoKg);
         triagem.setImagemUrl(request.imagemUrl());
 
+        Map<UUID, BigDecimal> estoqueAntes =
+                notificacoes != null ? notificacoes.estoque(cooperativaId) : Map.of();
         Triagem saved = repository.saveAndFlush(triagem);
         estoque.sincronizar(saved);
+        if (notificacoes != null) {
+            notificacoes.triagemCriada(
+                    cooperativaId,
+                    nomeMaterial(saved),
+                    saved.getQuantidadeKg(),
+                    nomeStatus(saved));
+            notificacoes.estoqueAlterado(cooperativaId, estoqueAntes);
+        }
 
         return toResponse(saved);
     }
@@ -124,6 +139,7 @@ public class TriagemService {
                 || !triagem.getColeta().getEventoId().equals(request.coletaId())
                 || !triagem.getMaterial().getMaterialId().equals(request.materialId()))
             throw new RegraDeNegocioException("Não é permitido alterar a equipe, coleta ou material da triagem.");
+        String statusAntes = nomeStatus(triagem);
         validarQuantidades(request.quantidadeKg(), request.quantidadeRejeitoKg());
         triagem.setQuantidadeKg(request.quantidadeKg());
         triagem.setQuantidadeRejeitoKg(
@@ -135,20 +151,22 @@ public class TriagemService {
             validarStatus(status);
             triagem.setStatus(status);
         }
-        return salvar(triagem);
+        return salvar(triagem, statusAntes);
     }
 
     public TriagemResponse atualizarStatus(UUID id, AtualizarStatusTriagemRequest request) {
         Triagem triagem = bloquear(id);
+        String statusAntes = nomeStatus(triagem);
         Status status = statusRepository.findById(request.statusId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
         validarStatus(status);
         triagem.setStatus(status);
-        return salvar(triagem);
+        return salvar(triagem, statusAntes);
     }
 
     public TriagemResponse concluir(UUID id, ConcluirTriagemRequest request) {
         Triagem triagem = bloquear(id);
+        String statusAntes = nomeStatus(triagem);
         validarQuantidades(request.quantidadeFinalKg(), triagem.getQuantidadeRejeitoKg());
         Status statusConcluida = statusRepository
                 .findByReferenciaAndStatusAtual("TRIAGEM", "Concluído")
@@ -157,7 +175,7 @@ public class TriagemService {
         if (request.quantidadeFinalKg() != null) {
             triagem.setQuantidadeKg(request.quantidadeFinalKg());
         }
-        return salvar(triagem);
+        return salvar(triagem, statusAntes);
     }
 
     public void deletar(UUID id) {
@@ -173,11 +191,30 @@ public class TriagemService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Triagem", id));
     }
 
-    private TriagemResponse salvar(Triagem triagem) {
+    private TriagemResponse salvar(Triagem triagem, String statusAntes) {
         validarQuantidades(triagem.getQuantidadeKg(), triagem.getQuantidadeRejeitoKg());
+        UUID cooperativaId = triagem.getColeta().getCooperado().getCooperativa().getCooperativaId();
+        Map<UUID, BigDecimal> estoqueAntes =
+                notificacoes != null ? notificacoes.estoque(cooperativaId) : Map.of();
         Triagem saved = repository.saveAndFlush(triagem);
         estoque.sincronizar(saved);
+        if (notificacoes != null) {
+            String statusDepois = nomeStatus(saved);
+            if (!java.util.Objects.equals(statusAntes, statusDepois))
+                notificacoes.triagemMudouDeEstado(
+                        cooperativaId, nomeMaterial(saved), statusAntes, statusDepois);
+            notificacoes.estoqueAlterado(cooperativaId, estoqueAntes);
+        }
         return toResponse(saved);
+    }
+
+    private static String nomeStatus(Triagem t) {
+        return t.getStatus() != null ? t.getStatus().getStatusAtual() : null;
+    }
+
+    private static String nomeMaterial(Triagem t) {
+        return t.getMaterial().getCategoria() != null
+                ? t.getMaterial().getCategoria().getNomeCategoria() : null;
     }
 
     private void validarStatus(Status status) {

@@ -45,6 +45,10 @@ public class NegociacaoController {
     private final PerfilRepository perfilRepository;
     private final NegociacaoFluxoService fluxo;
 
+    /** Opcional: ausente nos testes que montam o controller à mão (aí não há push). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.renovai.api.service.NotificacaoService notificacoes;
+
     @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
     public ResponseEntity<java.util.Map<String,Object>> erro(org.springframework.web.server.ResponseStatusException e) {
         return ResponseEntity.status(e.getStatusCode()).body(java.util.Map.of("status", e.getStatusCode().value(), "mensagem", e.getReason() == null ? "Operação não permitida." : e.getReason()));
@@ -188,6 +192,9 @@ public class NegociacaoController {
         repository.saveAndFlush(n);
         fluxo.sincronizarVinculo(n, fluxo.status("PEDIDO", "Em negociação", "EM_NEGOCIACAO"));
         fluxo.registrarObservacao(n, principal.getName(), request.observacao(), "CONTRAPROPOSTA");
+        if (notificacoes != null)
+            notificacoes.contraproposta(
+                    n.getEmpresa().getEmpresaId(), n.getCooperativa().getNome(), n.getValorTotal());
         return ResponseEntity.ok(toResponse(n));
     }
  

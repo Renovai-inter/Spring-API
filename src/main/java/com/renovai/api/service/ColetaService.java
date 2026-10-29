@@ -34,6 +34,10 @@ public class ColetaService {
     private final TriagemService triagemService;
     private final TriagemEstoqueService estoque;
 
+    /** Opcional: ausente nos testes que montam o serviço à mão (aí não há push). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacaoService notificacoes;
+
     public ColetaService(ColetaRepository repository,
                          FuncionarioRepository funcionarioRepository,
                          StatusRepository statusRepository,
@@ -126,12 +130,18 @@ public class ColetaService {
 
         Coleta saved = repository.saveAndFlush(coleta);
         salvarMateriais(saved, request);
+        if (notificacoes != null)
+            notificacoes.coletaRegistrada(
+                    cooperado.getCooperativa().getCooperativaId(),
+                    cooperado.getUsuario().getNome(),
+                    saved.getQuantidadeKg());
         return toResponse(saved);
     }
 
     public ColetaResponse atualizar(UUID id, ColetaRequest request) {
         estoque.bloquearColeta(id);
         Coleta coleta = findOrThrow(id);
+        String statusAntes = nomeStatus(coleta.getStatus());
         if (coleta.getQuantidadeKg().compareTo(request.quantidadeKg()) != 0
                 && (request.materiais() == null || request.materiais().isEmpty())
                 && triagemRepository.findByColeta_EventoId(id).stream().anyMatch(estoque::concluida))
@@ -159,15 +169,33 @@ public class ColetaService {
 
         Coleta saved = repository.saveAndFlush(coleta);
         salvarMateriais(saved, request);
+        avisarMudancaDeStatus(saved, statusAntes);
         return toResponse(saved);
     }
 
     public ColetaResponse atualizarStatus(UUID id, AtualizarStatusColetaRequest request) {
         Coleta coleta = findOrThrow(id);
+        String statusAntes = nomeStatus(coleta.getStatus());
         Status status = statusRepository.findById(request.statusId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Status", request.statusId()));
         coleta.setStatus(status);
-        return toResponse(repository.save(coleta));
+        Coleta saved = repository.save(coleta);
+        avisarMudancaDeStatus(saved, statusAntes);
+        return toResponse(saved);
+    }
+
+    private void avisarMudancaDeStatus(Coleta coleta, String statusAntes) {
+        String statusDepois = nomeStatus(coleta.getStatus());
+        if (notificacoes == null || java.util.Objects.equals(statusAntes, statusDepois)) return;
+        notificacoes.coletaMudouDeEstado(
+                coleta.getCooperado().getCooperativa().getCooperativaId(),
+                coleta.getCooperado().getUsuario().getNome(),
+                statusAntes,
+                statusDepois);
+    }
+
+    private static String nomeStatus(Status status) {
+        return status == null ? null : status.getStatusAtual();
     }
 
     public void deletar(UUID id) {

@@ -50,6 +50,10 @@ public class EmpresaSchemaService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
 
+    /** Opcional: ausente nos testes que montam o serviço à mão (aí não há push). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private NotificacaoService notificacoes;
+
     public EmpresaSchemaService(
             EmpresaSchemaRepository repository,
             PasswordEncoder passwordEncoder,
@@ -424,6 +428,8 @@ public class EmpresaSchemaService {
                 request.chaveSolicitacao(),
                 request.cooperativaId(),
                 statusAbertos.get(0));
+        if (notificacoes != null)
+            notificacoes.propostaRecebida(request.cooperativaId(), perfil.nomeEmpresa());
         // Envio não é venda: saldo só pode ser baixado pelo fluxo de aprovação da cooperativa.
         return pedido(email, request.chaveSolicitacao());
     }
