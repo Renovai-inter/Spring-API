@@ -2,6 +2,9 @@ package com.renovai.api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.firebase.FirebaseOptions;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -10,6 +13,17 @@ import java.util.Map;
 import java.util.UUID;
 
 class NotificacaoServiceTest {
+
+    @Test
+    void inicializaOpcoesFirebaseComDependenciasDeRuntime() {
+        // Reproduz o build que falhava no deploy, sem credenciais reais ou acesso à rede.
+        FirebaseOptions opcoes = FirebaseOptions.builder()
+                .setCredentials(GoogleCredentials.create(new AccessToken("token-de-teste", null)))
+                .build();
+
+        assertThat(opcoes.getJsonFactory().getClass().getName())
+                .isEqualTo("com.google.api.client.json.jackson2.JacksonFactory");
+    }
 
     @Test
     void naoAvisaQuemFezAAcao() {
