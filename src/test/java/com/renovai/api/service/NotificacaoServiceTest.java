@@ -26,6 +26,17 @@ class NotificacaoServiceTest {
     }
 
     @Test
+    void semCredenciaisOPushFicaDesligadoSemDerrubarAApi() {
+        assertThat(new NotificacaoService(null, "").ativo()).isFalse();
+    }
+
+    @Test
+    void credenciaisInvalidasDesligamOPushSemDerrubarAApi() {
+        assertThat(new NotificacaoService(null, "{\"type\": \"service_account\"}").ativo()).isFalse();
+        assertThat(new NotificacaoService(null, "/caminho/que/nao/existe.json").ativo()).isFalse();
+    }
+
+    @Test
     void naoAvisaQuemFezAAcao() {
         assertThat(NotificacaoService.semAutor(
                         List.of("Gestor@Coop.com", "outro@coop.com", " "), "gestor@coop.com"))

@@ -87,6 +87,7 @@ public class NotificacaoService {
         FirebaseApp app = iniciarFirebase(credenciais);
         this.fcm = app == null ? null : FirebaseMessaging.getInstance(app);
         this.firestore = app == null ? null : FirestoreClient.getFirestore(app);
+        if (app != null) log.info("Notificações push ligadas (Firebase {}).", app.getOptions().getProjectId());
     }
 
     /** FIREBASE_CREDENTIALS: o JSON da conta de serviço do Firebase ou o caminho do arquivo. */
@@ -106,10 +107,16 @@ public class NotificacaoService {
                     .filter(a -> a.getName().equals(nome))
                     .findFirst()
                     .orElseGet(() -> FirebaseApp.initializeApp(opcoes, nome));
-        } catch (Exception e) {
-            log.error("Credenciais do Firebase inválidas: notificações push desligadas.", e);
+        } catch (Exception | LinkageError e) {
+            // LinkageError: falta de classe do SDK no build (a v0.1.2 caía aqui); a API segue sem push
+            log.error("Não foi possível iniciar o Firebase: notificações push desligadas.", e);
             return null;
         }
+    }
+
+    /** true quando o Firebase iniciou com FIREBASE_CREDENTIALS e os pushes estão sendo enviados. */
+    public boolean ativo() {
+        return fcm != null;
     }
 
     // ───────────────────────────── aparelhos ─────────────────────────────
