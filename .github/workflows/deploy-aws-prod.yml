@@ -79,6 +79,30 @@ jobs:
       - name: Check application secrets
         run: kubectl get secret springboot-secrets -n renovai-api > /dev/null
 
+      # Push do app: leva o JSON da conta de serviço do Firebase (secret do repositório) para o
+      # secret do cluster. O valor só passa por variável de ambiente e arquivo temporário.
+      - name: Sync Firebase credentials
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: |
+          if [ -z "$FIREBASE_CREDENTIALS" ]; then
+            echo "::warning::Secret FIREBASE_CREDENTIALS ausente: o push fica como estiver no cluster."
+            exit 0
+          fi
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+
+          valor = os.environ['FIREBASE_CREDENTIALS']
+          if json.loads(valor).get('type') != 'service_account':
+              raise SystemExit('FIREBASE_CREDENTIALS não é o JSON de uma conta de serviço')
+          patch = {'data': {'FIREBASE_CREDENTIALS': base64.b64encode(valor.encode()).decode()}}
+          Path(os.environ['RUNNER_TEMP'], 'firebase-patch.json').write_text(json.dumps(patch))
+          PY
+          kubectl patch secret springboot-secrets -n renovai-api --type merge \
+            --patch-file "$RUNNER_TEMP/firebase-patch.json" > /dev/null
+          rm -f "$RUNNER_TEMP/firebase-patch.json"
+
       - name: Deploy ECR image to EKS
         env:
           ECR_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
