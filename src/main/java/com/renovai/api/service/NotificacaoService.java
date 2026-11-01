@@ -62,6 +62,7 @@ public class NotificacaoService {
 
     /** Aba do app que o toque na notificação abre. */
     static final String ABA_PEDIDOS = "pedidos",
+            ABA_PEDIDOS_PENDENTES = "pedidos_pendentes", // proposta recebida, à espera do gestor
             ABA_COLETAS = "coletas",
             ABA_ESTOQUE = "estoque",
             ABA_RATEIOS = "rateios";
@@ -179,7 +180,8 @@ public class NotificacaoService {
 
     public void propostaRecebida(UUID cooperativaId, String empresaNome) {
         publicar(() -> gestores(cooperativaId), "Nova proposta recebida",
-                nome(empresaNome, "Uma empresa") + " enviou um pedido para a cooperativa.", ABA_PEDIDOS);
+                nome(empresaNome, "Uma empresa") + " enviou um pedido para a cooperativa.",
+                ABA_PEDIDOS_PENDENTES);
     }
 
     public void contraproposta(UUID empresaId, String cooperativaNome, BigDecimal valor) {
