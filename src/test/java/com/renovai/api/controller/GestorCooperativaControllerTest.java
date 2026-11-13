@@ -46,6 +46,17 @@ class GestorCooperativaControllerTest {
     }
 
     @Test
+    void aceitaCargoGestorComoEstaCadastradoNoBanco() {
+        when(funcionarios.findByUsuario_EmailIgnoreCaseAndEstaAtivoTrue(principal.getName()))
+                .thenReturn(List.of(funcionario("Gestor")));
+
+        var resposta = controller.minhaCooperativa(principal);
+
+        assertEquals(200, resposta.getStatusCode().value());
+        verify(cooperativas).buscarPorId(cooperativaId);
+    }
+
+    @Test
     void gestorAtualizaSomenteFotoDaPropriaCooperativa() {
         when(funcionarios.findByUsuario_EmailIgnoreCaseAndEstaAtivoTrue(principal.getName()))
                 .thenReturn(List.of(funcionario("GESTOR_COOPERATIVA")));
