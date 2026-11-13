@@ -17,6 +17,8 @@ public interface FuncionarioRepository extends JpaRepository<Funcionario, UUID> 
        
        Optional<Funcionario> findByUsuario(Usuario usuario);
 
+       List<Funcionario> findByUsuario_EmailIgnoreCaseAndEstaAtivoTrue(String email);
+
        List<Funcionario> findByCooperativa_CooperativaId(UUID cooperativaId);
 
        @Query("SELECT f FROM Funcionario f JOIN f.cargo c WHERE c.cargo = :cargo AND f.estaAtivo = true")

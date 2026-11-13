@@ -134,6 +134,13 @@ public class CooperativaService {
         return toResponse(repository.save(cooperativa));
     }
  
+    public CooperativaResponse atualizarImagem(UUID id, String imagemUrl) {
+        Cooperativa cooperativa = findOrThrow(id);
+        cooperativa.setImagemUrl(imagemUrl);
+        cooperativa.setDataAtualizacao(java.time.LocalDateTime.now());
+        return toResponse(repository.save(cooperativa));
+    }
+
     public void deletar(UUID id) {
         findOrThrow(id);
         repository.deleteById(id);
