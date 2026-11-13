@@ -57,7 +57,10 @@ public class GestorCooperativaController {
                 .stream()
                 .filter(f -> f.getCargo() != null && f.getCargo().getCargo() != null)
                 .filter(f -> {
-                    String cargo = f.getCargo().getCargo().toUpperCase(Locale.ROOT);
+                    String cargo = f.getCargo().getCargo().trim().toUpperCase(Locale.ROOT).replace(" ", "_");
+                    if (cargo.startsWith("ROLE_")) cargo = cargo.substring(5);
+                    if (cargo.equals("GESTOR")) cargo = "GESTOR_COOPERATIVA";
+                    if (cargo.equals("ADMIN")) cargo = "ADMIN_COOPERATIVA";
                     return cargo.equals("GESTOR_COOPERATIVA") || cargo.equals("ADMIN_COOPERATIVA");
                 })
                 .findFirst()
